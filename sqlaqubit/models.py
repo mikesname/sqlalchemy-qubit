@@ -213,9 +213,6 @@ class Term(Object, NestedObject):
 
 
 class InformationObject(Object, NestedObject):
-    __tablename__ = 'information_object'
-    __mapper_args__ = dict(polymorphic_identity='QubitInformationObject')
-
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
     oai_local_identifier = Column(Integer, autoincrement=True)
@@ -224,6 +221,9 @@ class InformationObject(Object, NestedObject):
                 primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.LEVEL_OF_DESCRIPTION_ID)
     source_culture = Column(String(25))
+
+    __tablename__ = 'information_object'
+    __mapper_args__ = dict(polymorphic_identity='QubitInformationObject')
 
 
 class Actor(Object, NestedObject):
