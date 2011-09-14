@@ -18,11 +18,7 @@ Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
 
-
 class Object(Base):
-    __tablename__ = 'object'
-    __mapper_args__ = dict(polymorphic_identity='QubitObject')
-
     id = Column(Integer, primary_key=True)
     class_name = Column("class_name", String(25))
     serial_number = Column(Integer, nullable=True, default=0)
@@ -38,6 +34,9 @@ class Object(Base):
     def __repr__(self):
         return "<%s: %s>" % (self.class_name, self.id)
 
+    __tablename__ = 'object'
+    __mapper_args__ = dict(polymorphic_identity='QubitObject')
+
 
 class NestedObject(object):
     """
@@ -46,25 +45,33 @@ class NestedObject(object):
     crawling the heirarchy via the database.
     """
     @declared_attr
-    def parent_id(cls):        
-        return Column(Integer, ForeignKey("object.id"))
+    def parent_id(cls):
+        print "Declaring attr to %s" % cls.__name__
+        return Column(Integer, ForeignKey(cls.id))
 
     @declared_attr
     def parent(cls):
-        return relationship("%s" % cls.__name__)
+        return relationship("%s" % cls.__name__, 
+                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)),
+                foreign_keys="%s.id" % cls.__name__, uselist=False)
 
-    lft = Column(Integer)
-    rgt = Column(Integer)
+    @declared_attr
+    def lft(cls):
+        return Column(Integer)
+
+    @declared_attr
+    def rgt(cls):
+        return Column(Integer)
 
 
-class Taxonomy(Object):
+class Taxonomy(Object, NestedObject):
     """Taxonomy model."""
-    __tablename__ = 'taxonomy'
-    __mapper_args__ = dict(polymorphic_identity='QubitTaxonomy')
-
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     usage = Column(String(255), nullable=True)
     source_culture = Column(String(25))
+
+    __tablename__ = 'taxonomy'
+    __mapper_args__ = dict(polymorphic_identity='QubitTaxonomy')
 
     # Qubit primary keys are hard-coded for these items
     ROOT_ID = 30
@@ -99,16 +106,16 @@ class Taxonomy(Object):
     ISDF_RELATION_TYPE_ID = 61
 
 
-class Term(Object):
+class Term(Object, NestedObject):
     """Term model."""
-    __tablename__ = 'term'
-    __mapper_args__ = dict(polymorphic_identity='QubitTerm')
-
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     taxonomy_id = Column(Integer, ForeignKey('taxonomy.id'))
     taxonomy = relationship(Taxonomy, primaryjoin=taxonomy_id == Taxonomy.id)
     code = Column(String(255), nullable=True)
     source_culture = Column(String(25))
+
+    __tablename__ = 'term'
+    __mapper_args__ = dict(polymorphic_identity='QubitTerm')
 
     # ROOT term id
     ROOT_ID = 110
@@ -206,7 +213,7 @@ class Term(Object):
     EXTERNAL_URI_ID = 166
 
 
-class InformationObject(Object):
+class InformationObject(Object, NestedObject):
     __tablename__ = 'information_object'
     __mapper_args__ = dict(polymorphic_identity='QubitInformationObject')
 
@@ -220,54 +227,54 @@ class InformationObject(Object):
     source_culture = Column(String(25))
 
 
-class Actor(Object):
-    __tablename__ = 'actor'
-    __mapper_args__ = dict(polymorphic_identity='QubitActor')
-
+class Actor(Object, NestedObject):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
-    entity_type_id = Column(Integer, ForeignKey('term.id'))
+    entity_type_id = Column(Integer, ForeignKey('term.id'), nullable=True)
     entity_type = relationship(Term, 
                 primaryjoin="and_(Actor.entity_type_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.ACTOR_ENTITY_TYPE_ID)
-    description_status_id = Column(Integer, ForeignKey('term.id'))
+    description_status_id = Column(Integer, ForeignKey('term.id'), nullable=True)
     description_status = relationship(Term, 
                 primaryjoin="and_(Actor.description_status_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_STATUS_ID)
-    description_detail_id = Column(Integer, ForeignKey('term.id'))
+    description_detail_id = Column(Integer, ForeignKey('term.id'), nullable=True)
     description_detail = relationship(Term, 
                 primaryjoin="and_(Actor.description_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
     source_culture = Column(String(25))
 
+    __tablename__ = 'actor'
+    __mapper_args__ = dict(polymorphic_identity='QubitActor')
+
 
 class Repository(Actor):
-    __tablename__ = "repository"
-    __mapper_args__ = dict(polymorphic_identity='QubitRepository')
-
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     identifier = Column(String(255))
-    desc_status_id = Column(Integer, ForeignKey('term.id'))
+    desc_status_id = Column(Integer, ForeignKey('term.id'), nullable=True)
     desc_status = relationship(Term, 
                 primaryjoin="and_(Repository.desc_status_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_STATUS_ID)
-    desc_detail_id = Column(Integer, ForeignKey('term.id'))
+    desc_detail_id = Column(Integer, ForeignKey('term.id'), nullable=True)
     desc_detail = relationship(Term, 
                 primaryjoin="and_(Repository.desc_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
     source_culture = Column(String(25))
 
+    __tablename__ = "repository"
+    __mapper_args__ = dict(polymorphic_identity='QubitRepository')
+
 
 
 class User(Actor):
-    __tablename__ = "user"
-    __mapper_args__ = dict(polymorphic_identity='QubitUser')
-
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     username = Column(String(255))
     email = Column(String(255))
     sha1_password = Column(String(255))
     salt = Column(String(255))
+
+    __tablename__ = "user"
+    __mapper_args__ = dict(polymorphic_identity='QubitUser')
 
 
 
