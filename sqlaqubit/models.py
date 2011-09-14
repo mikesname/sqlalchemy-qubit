@@ -46,14 +46,13 @@ class NestedObject(object):
     """
     @declared_attr
     def parent_id(cls):
-        print "Declaring attr to %s" % cls.__name__
         return Column(Integer, ForeignKey(cls.id))
 
     @declared_attr
     def parent(cls):
-        return relationship("%s" % cls.__name__, 
-                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)),
-                foreign_keys="%s.id" % cls.__name__, uselist=False)
+        return relationship("%s" % cls.__name__,
+                backref="children", remote_side="%s.id" % cls.__name__,
+                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)))
 
     @declared_attr
     def lft(cls):
