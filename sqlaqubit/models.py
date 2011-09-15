@@ -5,10 +5,10 @@ SQLAlchemy model of the Qubit Toolkit database.
 import re
 import datetime
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, MapperExtension
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, select, case, func
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, select, case, func, Table
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sqla
 
@@ -17,6 +17,7 @@ Session = sessionmaker(bind=engine)
 
 
 Base = declarative_base()
+metadata = MetaData()
 
 
 class NestedSetExtension(MapperExtension):
@@ -85,7 +86,7 @@ class NestedSetExtension(MapperExtension):
 
 class NestedObjectMixin(object):
     """
-    Base class for classes with lft/rgt heirarchy fields.  These creates a
+    Mixin class for classes with lft/rgt heirarchy fields.  These creates a
     tree structure which allows for optimised traversal, as opposed to
     crawling the heirarchy via the database.
     """
@@ -107,6 +108,27 @@ class NestedObjectMixin(object):
     @declared_attr
     def rgt(cls):
         return Column(Integer)
+
+class I18NMixin(object):
+    """Mixin class for objects that have an i18n table."""
+
+    @declared_attr
+    def _i18n(cls):
+        return Table("%s_i18n" % cls.__tablename__, metadata,
+                Column("id", Integer, primary_key=True),
+                Column("culture", String, primary_key=True),
+                extend_existing=True,
+        )
+
+    def i18n(self, culture, name):
+        t = self._i18n
+        c = t.columns.get(name)
+        if not c:
+            c = Column(name, String(255))
+            t.append_column(c)
+        return session.scalar(
+            select([c]).where(t.c.id == self.id & t.c.culture == culture)
+        )
 
 
 def cc2us(name):
@@ -327,7 +349,7 @@ class Actor(Object, NestedObjectMixin):
     #__mapper_args__ = dict(polymorphic_identity='QubitActor')
 
 
-class Repository(Actor):
+class Repository(Actor, I18NMixin):
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     identifier = Column(String(255))
     desc_status_id = Column(Integer, ForeignKey('term.id'), nullable=True)
