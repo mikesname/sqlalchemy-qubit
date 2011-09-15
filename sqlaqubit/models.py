@@ -2,12 +2,13 @@
 SQLAlchemy model of the Qubit Toolkit database.
 """
 
+import re
 import datetime
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, MapperExtension
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, select, case, func
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sqla
 
@@ -16,6 +17,101 @@ Session = sessionmaker(bind=engine)
 
 
 Base = declarative_base()
+
+
+class NestedSetExtension(MapperExtension):
+    def before_insert(self, mapper, connection, instance):
+        table = instance.__table__
+        if not instance.parent:
+            max = connection.scalar(func.max(table.c.rgt))
+            instance.lft = max + 1
+            instance.rgt = max + 2
+        else:
+            right_most_sibling = connection.scalar(
+                select([table.c.rgt]).where(table.c.id==instance.parent.id)
+            )
+
+            connection.execute(
+                table.update(table.c.rgt>=right_most_sibling).values(
+                    lft = case(
+                            [(table.c.lft>right_most_sibling, table.c.lft + 2)],
+                            else_ = table.c.lft
+                          ),
+                    rgt = case(
+                            [(table.c.rgt>=right_most_sibling, table.c.rgt + 2)],
+                            else_ = table.c.rgt
+                          )
+                )
+            )
+            instance.lft = right_most_sibling
+            instance.rgt = right_most_sibling + 1
+
+    def before_update(self, mapper, connection, instance):
+        table = instance.__table__
+        old_parent_id = connection.scalar(
+                select([table.c.parent_id]).where(table.c.id==instance.id)
+        )
+        if old_parent_id != instance.parent_id:
+            if instance.parent_id is None:
+                # reparent any child nodes to the old parent
+                connection.execute(
+                    table.update(table.c.parent_id == old_parent_id).values(
+                        parent_id = old_parent_id
+                    )
+                )
+
+            # treat the node as deleted and inserted again
+            self.before_delete(mapper, connection, instance)
+            self.before_insert(mapper, connection, instance)
+
+    def before_delete(self, mapper, connection, instance):
+        """Delete nested tree values for this model."""
+        table = instance.__table__
+        delta = instance.rgt - instance.lft + 1
+
+        connection.execute(
+            table.update(table.c.rgt>=instance.rgt).values(
+                lft = case(
+                    [(table.c.lft > instance.lft, table.c.lft - delta)],
+                    else_ = table.c.lft
+                ),
+                rgt = case(
+                    [(table.c.rgt >= instance.rgt, table.c.rgt - delta)],
+                    else_ = table.c.rgt
+                )
+            )
+        )
+
+
+class NestedObjectMixin(object):
+    """
+    Base class for classes with lft/rgt heirarchy fields.  These creates a
+    tree structure which allows for optimised traversal, as opposed to
+    crawling the heirarchy via the database.
+    """
+    @declared_attr
+    def parent_id(cls):
+        return Column(Integer, ForeignKey(cls.id))
+
+    @declared_attr
+    def parent(cls):
+        return relationship("%s" % cls.__name__,
+                backref="children", order_by="%s.lft" % cls.__name__,
+                remote_side="%s.id" % cls.__name__,
+                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)))
+
+    @declared_attr
+    def lft(cls):
+        return Column(Integer)
+
+    @declared_attr
+    def rgt(cls):
+        return Column(Integer)
+
+
+def cc2us(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
 class Object(Base):
@@ -34,43 +130,29 @@ class Object(Base):
     def __repr__(self):
         return "<%s: %s>" % (self.class_name, self.id)
 
-    __tablename__ = 'object'
-    __mapper_args__ = dict(polymorphic_identity='QubitObject')
-
-
-class NestedObject(object):
-    """
-    Base class for classes with lft/rgt heirarchy fields.  These creates a
-    tree structure which allows for optimised traversal, as opposed to
-    crawling the heirarchy via the database.
-    """
     @declared_attr
-    def parent_id(cls):
-        return Column(Integer, ForeignKey(cls.id))
+    def __tablename__(cls):
+        """Generate tablename from underscored
+        version of class name"""
+        return cc2us(cls.__name__)
 
     @declared_attr
-    def parent(cls):
-        return relationship("%s" % cls.__name__,
-                backref="children", remote_side="%s.id" % cls.__name__,
-                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)))
-
-    @declared_attr
-    def lft(cls):
-        return Column(Integer)
-
-    @declared_attr
-    def rgt(cls):
-        return Column(Integer)
+    def __mapper_args__(cls):
+        args = dict(
+                polymorphic_identity="Qubit%s" % cls.__name__)
+        # FIXME: Find a way around referencing this here        
+        if issubclass(cls, NestedObjectMixin):
+            args.update(extension=NestedSetExtension(), batch=False)
+        return args
 
 
-class Taxonomy(Object, NestedObject):
+
+
+class Taxonomy(Object, NestedObjectMixin):
     """Taxonomy model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     usage = Column(String(255), nullable=True)
     source_culture = Column(String(25))
-
-    __tablename__ = 'taxonomy'
-    __mapper_args__ = dict(polymorphic_identity='QubitTaxonomy')
 
     # Qubit primary keys are hard-coded for these items
     ROOT_ID = 30
@@ -105,16 +187,13 @@ class Taxonomy(Object, NestedObject):
     ISDF_RELATION_TYPE_ID = 61
 
 
-class Term(Object, NestedObject):
+class Term(Object, NestedObjectMixin):
     """Term model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     taxonomy_id = Column(Integer, ForeignKey('taxonomy.id'))
     taxonomy = relationship(Taxonomy, primaryjoin=taxonomy_id == Taxonomy.id)
     code = Column(String(255), nullable=True)
     source_culture = Column(String(25))
-
-    __tablename__ = 'term'
-    __mapper_args__ = dict(polymorphic_identity='QubitTerm')
 
     # ROOT term id
     ROOT_ID = 110
@@ -212,7 +291,7 @@ class Term(Object, NestedObject):
     EXTERNAL_URI_ID = 166
 
 
-class InformationObject(Object, NestedObject):
+class InformationObject(Object, NestedObjectMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
     oai_local_identifier = Column(Integer, autoincrement=True)
@@ -222,11 +301,12 @@ class InformationObject(Object, NestedObject):
                     "Term.taxonomy_id==%s)" % Taxonomy.LEVEL_OF_DESCRIPTION_ID)
     source_culture = Column(String(25))
 
-    __tablename__ = 'information_object'
-    __mapper_args__ = dict(polymorphic_identity='QubitInformationObject')
+    def __repr__(self):
+        return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
 
 
-class Actor(Object, NestedObject):
+
+class Actor(Object, NestedObjectMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
     entity_type_id = Column(Integer, ForeignKey('term.id'), nullable=True)
@@ -243,8 +323,8 @@ class Actor(Object, NestedObject):
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
     source_culture = Column(String(25))
 
-    __tablename__ = 'actor'
-    __mapper_args__ = dict(polymorphic_identity='QubitActor')
+    #__tablename__ = 'actor'
+    #__mapper_args__ = dict(polymorphic_identity='QubitActor')
 
 
 class Repository(Actor):
@@ -260,10 +340,6 @@ class Repository(Actor):
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
     source_culture = Column(String(25))
 
-    __tablename__ = "repository"
-    __mapper_args__ = dict(polymorphic_identity='QubitRepository')
-
-
 
 class User(Actor):
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
@@ -271,11 +347,5 @@ class User(Actor):
     email = Column(String(255))
     sha1_password = Column(String(255))
     salt = Column(String(255))
-
-    __tablename__ = "user"
-    __mapper_args__ = dict(polymorphic_identity='QubitUser')
-
-
-
 
 
