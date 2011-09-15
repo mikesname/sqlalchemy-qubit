@@ -9,15 +9,18 @@ from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, MapperExtension
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, select, case, func, Table
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, mapper
 import sqlalchemy as sqla
 
 engine = create_engine("mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit")
 Session = sessionmaker(bind=engine)
 
 
-Base = declarative_base()
-metadata = MetaData()
+Base = declarative_base(bind=engine)
+
+metadata = MetaData(engine)
+
+
 
 
 class NestedSetExtension(MapperExtension):
@@ -109,26 +112,21 @@ class NestedObjectMixin(object):
     def rgt(cls):
         return Column(Integer)
 
+
 class I18NMixin(object):
     """Mixin class for objects that have an i18n table."""
 
     @declared_attr
-    def _i18n(cls):
-        return Table("%s_i18n" % cls.__tablename__, metadata,
-                Column("id", Integer, primary_key=True),
-                Column("culture", String, primary_key=True),
-                extend_existing=True,
-        )
-
-    def i18n(self, culture, name):
-        t = self._i18n
-        c = t.columns.get(name)
-        if not c:
-            c = Column(name, String(255))
-            t.append_column(c)
-        return session.scalar(
-            select([c]).where(t.c.id == self.id & t.c.culture == culture)
-        )
+    def i18n(cls):
+        if not hasattr(cls, "_i18n"):
+            name = cls.__name__ + "I18N"
+            tablename = cls.__tablename__ + "_i18n"
+            tableclass = type(name, (object,), {"__tablename__": tablename})
+            table = Table(tablename, metadata, autoload=True)
+            cls._i18n = relationship(mapper(tableclass, table), 
+                    primaryjoin=table.c.id==cls.__table__.c.id,
+                    foreign_keys=[table.c.id])
+        return cls._i18n
 
 
 def cc2us(name):
@@ -170,7 +168,7 @@ class Object(Base):
 
 
 
-class Taxonomy(Object, NestedObjectMixin):
+class Taxonomy(Object, NestedObjectMixin, I18NMixin):
     """Taxonomy model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     usage = Column(String(255), nullable=True)
@@ -209,7 +207,7 @@ class Taxonomy(Object, NestedObjectMixin):
     ISDF_RELATION_TYPE_ID = 61
 
 
-class Term(Object, NestedObjectMixin):
+class Term(Object, NestedObjectMixin, I18NMixin):
     """Term model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     taxonomy_id = Column(Integer, ForeignKey('taxonomy.id'))
@@ -313,7 +311,7 @@ class Term(Object, NestedObjectMixin):
     EXTERNAL_URI_ID = 166
 
 
-class InformationObject(Object, NestedObjectMixin):
+class InformationObject(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
     oai_local_identifier = Column(Integer, autoincrement=True)
@@ -328,7 +326,7 @@ class InformationObject(Object, NestedObjectMixin):
 
 
 
-class Actor(Object, NestedObjectMixin):
+class Actor(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
     entity_type_id = Column(Integer, ForeignKey('term.id'), nullable=True)
