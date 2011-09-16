@@ -490,7 +490,7 @@ class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="properties")
+    object = relationship(Object, backref="properties", enable_typechecks=False)
     scope = Column(String(255), nullable=True)
     name = Column(String(255))
 
