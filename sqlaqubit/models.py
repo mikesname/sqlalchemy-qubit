@@ -7,11 +7,12 @@ import datetime
 
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, MapperExtension
+from sqlalchemy.sql import and_, or_, not_
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy import select, case, func, Table
 from sqlalchemy.orm import relationship, backref, mapper
-import sqlalchemy as sqla
+import sqlalchemy
 
 engine = create_engine("mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit")
 Session = sessionmaker(bind=engine)
@@ -156,6 +157,76 @@ class I18NMixin(object):
     def source_culture(cls):
         return Column(String(7))
 
+    @classmethod
+    def _get_class_i18n(cls, session, klass, object_id, lang):
+        """Get the I18N data for a given class, object id, and lang."""
+        data = {}
+        try:
+            i18ncls = globals()[klass.__name__ + "I18N"]
+        except KeyError:
+            return data
+        i18n = None
+        try:
+            i18n = session.query(i18ncls).filter(
+                    and_(i18ncls.id==object_id, i18ncls.culture==lang)).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            pass
+        for col, spec in dict(i18ncls.__table__.columns).iteritems():
+            if spec.primary_key:
+                continue
+            data[col] = getattr(i18n, col) if i18n is not None else None
+        return data
+
+    @classmethod
+    def _get_i18n(cls, session, object_id, lang):
+        """Get i18n data for a given class AND it's
+        base classes."""
+        data = {}
+
+        for baseclass in cls.__bases__:
+            if hasattr(baseclass, "_get_i18n"):
+                data.update(baseclass._get_i18n(session, object_id, lang))
+        data.update(cls._get_class_i18n(session, cls, object_id, lang))
+        return data
+
+    def get_i18n(self, lang="en"):
+        """Get i18n data for a given object."""
+        session = Session.object_session(self)
+        return self._get_i18n(session, self.id, lang)
+
+    @classmethod
+    def _set_class_i18n(cls, session, klass, object_id, lang, data):
+        """Set the I18N data for a given class, object id, and lang."""
+        try:
+            i18ncls = globals()[klass.__name__ + "I18N"]
+        except KeyError:
+            return
+        try:
+            i18n = session.query(i18ncls).filter(
+                    and_(i18ncls.id==object_id, i18ncls.culture==lang)).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            i18n = i18ncls(id=object_id, culture=lang)
+            session.add(i18n)
+        for col, spec in dict(i18ncls.__table__.columns).iteritems():
+            if spec.primary_key:
+                continue
+            if data.get(col):
+                setattr(i18n, col, data.get(col))
+
+    @classmethod
+    def _set_i18n(cls, session, object_id, lang, data):
+        """Set the i18n data for a given class AND it's
+        base classes."""
+        for baseclass in cls.__bases__:
+            if hasattr(baseclass, "_set_i18n"):
+                baseclass._set_i18n(session, object_id, lang, data)
+        cls._set_class_i18n(session, cls, object_id, lang, data)
+
+    def set_i18n(self, data, lang="en"):
+        """Set i18n data for a given object."""
+        session = Session.object_session(self)
+        self._set_i18n(session, self.id, lang, data)
+
 
 class TimeStampMixin(object):
     """Auto add create/update timestamps."""
@@ -190,7 +261,7 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
         super(Object, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "<%s: %s>" % (self.class_name, self.id)
+        return "<%s: %s>" % (self.__class__, self.id)
 
     @declared_attr
     def __tablename__(cls):
