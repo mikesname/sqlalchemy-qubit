@@ -8,7 +8,8 @@ import datetime
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, MapperExtension
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, select, case, func, Table
+from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import select, case, func, Table
 from sqlalchemy.orm import relationship, backref, mapper
 import sqlalchemy as sqla
 
@@ -21,11 +22,30 @@ Base = declarative_base(bind=engine)
 metadata = MetaData(engine)
 
 
+def cc2us(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+def annotate_i18n(cls):
+    """Decorator for generating an I18N table
+    for the given source table, and placing
+    an accessor relationship on the source."""
+    tablename = cls.__tablename__ + "_i18n"
+    classname = cls.__name__ + "I18N"
+    i18nt = Table(tablename, Base.metadata, 
+            Column("id", ForeignKey("%s.id" % cls.__tablename__),
+                    primary_key=True),
+            Column("culture", String(25), primary_key=True),
+            autoload=True)
+    globals()[classname] = type(classname, (Base,), dict(__table__=i18nt))
+    setattr(cls, tablename, relationship(classname, cascade="all,delete-orphan"))
+    return cls
 
 
 class NestedSetExtension(MapperExtension):
     def before_insert(self, mapper, connection, instance):
-        table = instance.__table__
+        table = instance.nested_object_table
         if not instance.parent:
             max = connection.scalar(func.max(table.c.rgt))
             instance.lft = max + 1
@@ -51,7 +71,7 @@ class NestedSetExtension(MapperExtension):
             instance.rgt = right_most_sibling + 1
 
     def before_update(self, mapper, connection, instance):
-        table = instance.__table__
+        table = instance.nested_object_table
         old_parent_id = connection.scalar(
                 select([table.c.parent_id]).where(table.c.id==instance.id)
         )
@@ -70,7 +90,7 @@ class NestedSetExtension(MapperExtension):
 
     def before_delete(self, mapper, connection, instance):
         """Delete nested tree values for this model."""
-        table = instance.__table__
+        table = instance.nested_object_table
         delta = instance.rgt - instance.lft + 1
 
         connection.execute(
@@ -112,36 +132,58 @@ class NestedObjectMixin(object):
     def rgt(cls):
         return Column(Integer)
 
+    @classmethod
+    def nested_object_table(cls):
+        """When given a class which may inherit
+        from a nested set object, find the nested
+        base class and return it's table."""
+        bases = cls.__bases__
+        def check_bases(klass):
+            if NestedObjectMixin in klass.__bases__:
+                return klass
+            for base in klass.__bases__:
+                if check_bases(base):
+                    return base
+        nestedbase = check_bases(cls)
+        if nestedbase is not None:
+            return nestedbase.__table__
+
 
 class I18NMixin(object):
     """Mixin class for objects that have an i18n table."""
 
     @declared_attr
-    def i18n(cls):
-        if not hasattr(cls, "_i18n"):
-            name = cls.__name__ + "I18N"
-            tablename = cls.__tablename__ + "_i18n"
-            tableclass = type(name, (object,), {"__tablename__": tablename})
-            table = Table(tablename, metadata, autoload=True)
-            cls._i18n = relationship(mapper(tableclass, table), 
-                    primaryjoin=table.c.id==cls.__table__.c.id,
-                    foreign_keys=[table.c.id])
-        return cls._i18n
+    def source_culture(cls):
+        return Column(String(7))
 
 
-def cc2us(name):
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+class TimeStampMixin(object):
+    """Auto add create/update timestamps."""
+    @declared_attr
+    def created_at(cls):
+        return Column(DateTime, default=datetime.datetime.now())
+
+    @declared_attr
+    def updated_at(cls):
+        return Column(DateTime, default=datetime.datetime.now(), 
+            onupdate=datetime.datetime.now())
 
 
-class Object(Base):
+class SerialNumberMixin(object):            
+    """Keep a serial number."""
+    @declared_attr
+    def serial_number(cls):
+        return Column(Integer, nullable=True, default=0)
+
+
+class Object(Base, TimeStampMixin, SerialNumberMixin):
     id = Column(Integer, primary_key=True)
     class_name = Column("class_name", String(25))
-    serial_number = Column(Integer, nullable=True, default=0)
-    created_at = Column(DateTime, default=datetime.datetime.now())
-    updated_at = Column(DateTime, default=datetime.datetime.now(), 
-            onupdate=datetime.datetime.now())
     __mapper_args__ = dict(polymorphic_on=class_name)
+
+    properties = relationship("Property")
+    notes = relationship("Note")
+    slug = relationship("Slug", uselist=False, backref="object")
 
     def __init__(self, *args, **kwargs):
         self.class_name = "Qubit%s" % self.__class__.__name__
@@ -166,13 +208,11 @@ class Object(Base):
         return args
 
 
-
-
+@annotate_i18n
 class Taxonomy(Object, NestedObjectMixin, I18NMixin):
     """Taxonomy model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     usage = Column(String(255), nullable=True)
-    source_culture = Column(String(25))
 
     # Qubit primary keys are hard-coded for these items
     ROOT_ID = 30
@@ -207,13 +247,13 @@ class Taxonomy(Object, NestedObjectMixin, I18NMixin):
     ISDF_RELATION_TYPE_ID = 61
 
 
+@annotate_i18n
 class Term(Object, NestedObjectMixin, I18NMixin):
     """Term model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     taxonomy_id = Column(Integer, ForeignKey('taxonomy.id'))
     taxonomy = relationship(Taxonomy, primaryjoin=taxonomy_id == Taxonomy.id)
     code = Column(String(255), nullable=True)
-    source_culture = Column(String(25))
 
     # ROOT term id
     ROOT_ID = 110
@@ -311,6 +351,7 @@ class Term(Object, NestedObjectMixin, I18NMixin):
     EXTERNAL_URI_ID = 166
 
 
+@annotate_i18n
 class InformationObject(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
@@ -319,13 +360,12 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
     level_of_description = relationship(Term, 
                 primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.LEVEL_OF_DESCRIPTION_ID)
-    source_culture = Column(String(25))
 
     def __repr__(self):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
 
 
-
+@annotate_i18n
 class Actor(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
@@ -341,13 +381,11 @@ class Actor(Object, NestedObjectMixin, I18NMixin):
     description_detail = relationship(Term, 
                 primaryjoin="and_(Actor.description_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
-    source_culture = Column(String(25))
-
-    #__tablename__ = 'actor'
-    #__mapper_args__ = dict(polymorphic_identity='QubitActor')
+    contacts = relationship("ContactInformation")
 
 
-class Repository(Actor, I18NMixin):
+@annotate_i18n
+class Repository(Actor):
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     identifier = Column(String(255))
     desc_status_id = Column(Integer, ForeignKey('term.id'), nullable=True)
@@ -358,7 +396,6 @@ class Repository(Actor, I18NMixin):
     desc_detail = relationship(Term, 
                 primaryjoin="and_(Repository.desc_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % Taxonomy.DESCRIPTION_DETAIL_LEVEL_ID)
-    source_culture = Column(String(25))
 
 
 class User(Actor):
@@ -368,4 +405,55 @@ class User(Actor):
     sha1_password = Column(String(255))
     salt = Column(String(255))
 
+
+@annotate_i18n
+class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
+    """Property class."""
+    __tablename__ = "property"
+
+    id = Column(Integer, primary_key=True)
+    object_id = Column(Integer, ForeignKey("object.id"))
+    scope = Column(String(255), nullable=True)
+    name = Column(String(255))
+
+
+@annotate_i18n
+class Note(Base, TimeStampMixin, SerialNumberMixin, I18NMixin, NestedObjectMixin):
+    """Note class."""
+    __tablename__ = "note"
+
+    id = Column(Integer, primary_key=True)
+    object_id = Column(Integer, ForeignKey("object.id"))
+    type_id = Column(Integer, ForeignKey("type.id"))
+    scope = Column(String(255), nullable=True)
+    user_id = Column(Integer, ForeignKey("user.id"))
+
+
+@annotate_i18n
+class ContactInformation(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
+    """Contact Information class."""
+    __tablename__ = "contact_information"
+
+    id = Column(Integer, primary_key=True)
+    actor_id = Column(Integer, ForeignKey("object.id"))
+    primary_contact = Column(Boolean, nullable=True)
+    contact_person = Column(String(255), nullable=True)
+    street_address = Column(Text, nullable=True)
+    website = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    telephone = Column(String(255), nullable=True)
+    fax = Column(String(255), nullable=True)
+    postal_code = Column(String(255), nullable=True)
+    country_code = Column(String(255), nullable=True)
+    longitude = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
+
+
+class Slug(Base, SerialNumberMixin):
+    """Slug class."""
+    __tablename__ = "slug"
+
+    id = Column(Integer, primary_key=True)
+    object_id = Column(Integer, ForeignKey("object.id"))
+    slug = Column(String(255))
 
