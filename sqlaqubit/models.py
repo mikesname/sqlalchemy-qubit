@@ -46,7 +46,7 @@ def annotate_i18n(cls):
 
 class NestedSetExtension(MapperExtension):
     def before_insert(self, mapper, connection, instance):
-        table = instance.nested_object_table
+        table = instance.nested_object_table()
         if not instance.parent:
             max = connection.scalar(func.max(table.c.rgt))
             instance.lft = max + 1
@@ -72,7 +72,7 @@ class NestedSetExtension(MapperExtension):
             instance.rgt = right_most_sibling + 1
 
     def before_update(self, mapper, connection, instance):
-        table = instance.nested_object_table
+        table = instance.nested_object_table()
         old_parent_id = connection.scalar(
                 select([table.c.parent_id]).where(table.c.id==instance.id)
         )
@@ -91,7 +91,7 @@ class NestedSetExtension(MapperExtension):
 
     def before_delete(self, mapper, connection, instance):
         """Delete nested tree values for this model."""
-        table = instance.nested_object_table
+        table = instance.nested_object_table()
         delta = instance.rgt - instance.lft + 1
 
         connection.execute(
@@ -225,6 +225,8 @@ class I18NMixin(object):
     def set_i18n(self, data, lang="en"):
         """Set i18n data for a given object."""
         session = Session.object_session(self)
+        if not self in session:
+            session.add(self)
         self._set_i18n(session, self.id, lang, data)
 
 
@@ -254,6 +256,7 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
 
     properties = relationship("Property")
     notes = relationship("Note")
+    othernames = relationship("OtherName") 
     slug = relationship("Slug", uselist=False, backref="object")
 
     def __init__(self, *args, **kwargs):
@@ -495,7 +498,10 @@ class Note(Base, TimeStampMixin, SerialNumberMixin, I18NMixin, NestedObjectMixin
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    type_id = Column(Integer, ForeignKey("type.id"))
+    type_id = Column(Integer, ForeignKey("term.id"))
+    type = relationship(Term,
+                primaryjoin="and_(Note.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % Taxonomy.NOTE_TYPE_ID)
     scope = Column(String(255), nullable=True)
     user_id = Column(Integer, ForeignKey("user.id"))
 
@@ -527,4 +533,17 @@ class Slug(Base, SerialNumberMixin):
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
     slug = Column(String(255))
+
+
+@annotate_i18n
+class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
+    """Other Name class."""
+    __tablename__ = "other_name"
+
+    id = Column(Integer, primary_key=True)
+    object_id = Column(Integer, ForeignKey("object.id"))
+    type_id = Column(Integer, ForeignKey("term.id"))
+    type = relationship(Term,
+                primaryjoin="and_(OtherName.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % Taxonomy.ACTOR_NAME_TYPE_ID)
 
