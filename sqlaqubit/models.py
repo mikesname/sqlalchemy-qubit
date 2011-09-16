@@ -486,6 +486,8 @@ class User(Actor):
     sha1_password = Column(String(255))
     salt = Column(String(255))
 
+    def __repr__(self):
+        return "<%s: %s>" % (self.username, self.id)
 
 @annotate_i18n
 class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
