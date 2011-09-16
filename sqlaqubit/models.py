@@ -5,28 +5,27 @@ SQLAlchemy model of the Qubit Toolkit database.
 import re
 import datetime
 
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker, MapperExtension
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy import (
+            Column, String, Integer, Float, Boolean, Text, 
+            DateTime, ForeignKey, ForeignKeyConstraint,
+            create_engine, MetaData, select, case, func, Table)
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey, ForeignKeyConstraint
-from sqlalchemy import select, case, func, Table
-from sqlalchemy.orm import relationship, backref, mapper
-import sqlalchemy
+from sqlalchemy.orm import sessionmaker, MapperExtension, relationship, backref, mapper
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import and_, or_, not_
 
 engine = create_engine(
     "mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit",
     convert_unicode=True
 )
 Session = sessionmaker(bind=engine)
-
-
 Base = declarative_base(bind=engine)
 
 metadata = MetaData(engine)
 
 
 def cc2us(name):
+    """Convert CamelCase to under_score."""
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
@@ -49,6 +48,8 @@ def annotate_i18n(cls):
 
 
 class NestedSetExtension(MapperExtension):
+    """Mapper extension to update table nested set records
+    when an object is created, updated, or deleted."""
     def before_insert(self, mapper, connection, instance):
         table = instance.nested_object_table()
         if not instance.parent:
@@ -76,6 +77,7 @@ class NestedSetExtension(MapperExtension):
             instance.rgt = right_most_sibling + 1
 
     def before_update(self, mapper, connection, instance):
+        """Updated nested tree values."""
         table = instance.nested_object_table()
         old_parent_id = connection.scalar(
                 select([table.c.parent_id]).where(table.c.id==instance.id)
@@ -155,7 +157,7 @@ class NestedObjectMixin(object):
 
 
 class I18NMixin(object):
-    """Mixin class for objects that have an i18n table."""
+    """Mixin class for objects that have an associated i18n table."""
 
     @declared_attr
     def source_culture(cls):
@@ -173,7 +175,7 @@ class I18NMixin(object):
         try:
             i18n = session.query(i18ncls).filter(
                     and_(i18ncls.id==object_id, i18ncls.culture==lang)).one()
-        except sqlalchemy.orm.exc.NoResultFound:
+        except NoResultFound:
             pass
         for col, spec in dict(i18ncls.__table__.columns).iteritems():
             if spec.primary_key:
@@ -208,7 +210,7 @@ class I18NMixin(object):
         try:
             i18n = session.query(i18ncls).filter(
                     and_(i18ncls.id==object.id, i18ncls.culture==lang)).one()
-        except sqlalchemy.orm.exc.NoResultFound:
+        except NoResultFound:
             i18n = i18ncls(id=object.id, culture=lang)
             attrname = "%s_i18n" % klass.__tablename__
             getattr(object, attrname).append(i18n)
@@ -248,23 +250,25 @@ class TimeStampMixin(object):
 
 
 class SerialNumberMixin(object):            
-    """Keep a serial number."""
+    """Keep a serial number (currently defaults to 0)."""
     @declared_attr
     def serial_number(cls):
         return Column(Integer, nullable=True, default=0)
 
 
 class Object(Base, TimeStampMixin, SerialNumberMixin):
+    """Qubit Object base class."""
     id = Column(Integer, primary_key=True)
     class_name = Column("class_name", String(25))
     __mapper_args__ = dict(polymorphic_on=class_name)
 
     def __init__(self, *args, **kwargs):
+        """Set class_name on creation."""
         self.class_name = "Qubit%s" % self.__class__.__name__
         super(Object, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__, self.id)
+        return "<%s: %s>" % (self.__class__.__name__, self.id)
 
     @declared_attr
     def __tablename__(cls):
