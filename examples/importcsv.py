@@ -6,7 +6,7 @@ The fields we're expecting are:
    Address
    City
    Contact
-   Country        
+   Country
    E-mail
    English Name
    Extra
@@ -31,7 +31,7 @@ from incf.countryutils import data as countrydata
 
 from sqlaqubit import models
 
-HELP = """Import CSV files into the database.""" 
+HELP = """Import CSV files into the database."""
 
 
 class CvsImportError(StandardError):
@@ -44,7 +44,7 @@ def slugify(value):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
-    
+
     From Django's "django/template/defaultfilters.py".
     """
     if not isinstance(value, unicode):
@@ -129,13 +129,19 @@ class CsvImporter(object):
 
         self.user = self.session.query(models.User).filter(
                 models.User.username == "michaelb").one()
-        self.status = self.session.query(models.Term).filter(
-                models.Term.taxonomy_id == models.Taxonomy.DESCRIPTION_STATUS_ID
-                ).first()
-        self.detail = self.session.query(models.Term).filter(
-                models.Term.taxonomy_id == models.Taxonomy.\
-                        DESCRIPTION_DETAIL_LEVEL_ID
-                ).first()
+
+        # load default status and detail... this is where
+        # SQLAlchemy gets horrible
+        self.status = self.session.query(models.Term)\
+                .filter(models.Term.taxonomy_id == models.Taxonomy\
+                    .DESCRIPTION_STATUS_ID)\
+                .join(models.TermI18N, models.Term.id == models.TermI18N.id)\
+                .filter(models.TermI18N.name == "Draft").one()
+        self.detail = self.session.query(models.Term)\
+                .filter(models.Term.taxonomy_id == models.Taxonomy\
+                    .DESCRIPTION_DETAIL_LEVEL_ID)\
+                .join(models.TermI18N, models.Term.id == models.TermI18N.id)\
+                .filter(models.TermI18N.name == "Partial").one()
 
         self.options, self.args = parser.parse_args()
         if len(self.args) != 1:
@@ -151,7 +157,7 @@ class CsvImporter(object):
         # attempt to sniff the CSV dialect
         handle = open(csvfile, "rb")
         sample = handle.read(1024)
-        handle.seek(0)        
+        handle.seek(0)
         dialect = csv.Sniffer().sniff(sample)
 
         # the first line MUST be headers
