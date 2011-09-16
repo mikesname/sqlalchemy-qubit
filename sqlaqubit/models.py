@@ -199,7 +199,7 @@ class I18NMixin(object):
         return self._get_i18n(session, self.id, lang)
 
     @classmethod
-    def _set_class_i18n(cls, session, klass, object_id, lang, data):
+    def _set_class_i18n(cls, session, klass, object, lang, data):
         """Set the I18N data for a given class, object id, and lang."""
         try:
             i18ncls = globals()[klass.__name__ + "I18N"]
@@ -207,10 +207,11 @@ class I18NMixin(object):
             return
         try:
             i18n = session.query(i18ncls).filter(
-                    and_(i18ncls.id==object_id, i18ncls.culture==lang)).one()
+                    and_(i18ncls.id==object.id, i18ncls.culture==lang)).one()
         except sqlalchemy.orm.exc.NoResultFound:
-            i18n = i18ncls(id=object_id, culture=lang)
-            session.add(i18n)
+            i18n = i18ncls(id=object.id, culture=lang)
+            attrname = "%s_i18n" % klass.__tablename__
+            getattr(object, attrname).append(i18n)
         for col, spec in dict(i18ncls.__table__.columns).iteritems():
             if spec.primary_key:
                 continue
@@ -218,20 +219,20 @@ class I18NMixin(object):
                 setattr(i18n, col, data.get(col))
 
     @classmethod
-    def _set_i18n(cls, session, object_id, lang, data):
+    def _set_i18n(cls, session, object, lang, data):
         """Set the i18n data for a given class AND it's
         base classes."""
         for baseclass in cls.__bases__:
             if hasattr(baseclass, "_set_i18n"):
-                baseclass._set_i18n(session, object_id, lang, data)
-        cls._set_class_i18n(session, cls, object_id, lang, data)
+                baseclass._set_i18n(session, object, lang, data)
+        cls._set_class_i18n(session, cls, object, lang, data)
 
     def set_i18n(self, data, lang="en"):
         """Set i18n data for a given object."""
         session = Session.object_session(self)
         if not self in session:
             session.add(self)
-        self._set_i18n(session, self.id, lang, data)
+        self._set_i18n(session, self, lang, data)
 
 
 class TimeStampMixin(object):
@@ -519,7 +520,7 @@ class ContactInformation(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     actor_id = Column(Integer, ForeignKey("object.id"))
-    actor = relationship(Actor, backref="contacts")
+    actor = relationship(Actor, backref="contacts", enable_typechecks=False)
     primary_contact = Column(Boolean, nullable=True)
     contact_person = Column(String(255), nullable=True)
     street_address = Column(Text, nullable=True)
@@ -550,7 +551,7 @@ class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="other_names")
+    object = relationship(Object, backref="other_names", enable_typechecks=False)
     type_id = Column(Integer, ForeignKey("term.id"))
     type = relationship(Term,
                 primaryjoin="and_(OtherName.type_id==Term.id, "
