@@ -8,6 +8,7 @@ import re
 
 import csv
 from optparse import OptionParser, make_option
+import phpserialize
 import exceptions
 
 from incf.countryutils import data as countrydata
@@ -177,6 +178,15 @@ class CsvImporter(object):
                 region=record["State"],
                 note="Import from EHRI contact spreadsheet"
         ), lang)
+
+        langprop = models.Property(name="language", source_culture=lang)
+        repo.properties.append(langprop)
+        langprop.set_i18n(dict(value=phpserialize.dumps([lang])), lang)
+        scriptprop = models.Property(name="script", source_culture=lang)
+        repo.properties.append(scriptprop)
+        scriptprop.set_i18n(dict(value=phpserialize.dumps(["Latn"])), lang)
+
+
 
     def _get_country_code(self, record):
         ccn = countrydata.cn_to_ccn.get(record["Country"].strip())
