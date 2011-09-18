@@ -29,7 +29,7 @@ import unicodedata
 
 from incf.countryutils import data as countrydata
 
-from sqlaqubit import models
+from sqlaqubit import models, keys
 
 HELP = """Import CSV files into the database."""
 
@@ -118,6 +118,13 @@ class CsvImporter(object):
                 default=-1,
                 help="Import records up to this offset")
         parser.add_option(
+                "-u",
+                "--user",
+                action="store",
+                dest="user",
+                default="qubit",
+                help="User to own imported records")
+        parser.add_option(
                 "-l",
                 "--lang",
                 action="store",
@@ -125,27 +132,27 @@ class CsvImporter(object):
                 default="en",
                 help="Language for imported i18n fields")
 
+        self.options, self.args = parser.parse_args()
+        if len(self.args) != 1:
+            parser.error("No CSV file provided")
+
         self.session = models.Session()
 
         self.user = self.session.query(models.User).filter(
-                models.User.username == "michaelb").one()
+                models.User.username == self.options.user).one()
 
         # load default status and detail... this is where
         # SQLAlchemy gets horrible
         self.status = self.session.query(models.Term)\
-                .filter(models.Term.taxonomy_id == models.Taxonomy\
+                .filter(models.Term.taxonomy_id == keys.TaxonomyKeys\
                     .DESCRIPTION_STATUS_ID)\
                 .join(models.TermI18N, models.Term.id == models.TermI18N.id)\
                 .filter(models.TermI18N.name == "Draft").one()
         self.detail = self.session.query(models.Term)\
-                .filter(models.Term.taxonomy_id == models.Taxonomy\
+                .filter(models.Term.taxonomy_id == keys.TaxonomyKeys\
                     .DESCRIPTION_DETAIL_LEVEL_ID)\
                 .join(models.TermI18N, models.Term.id == models.TermI18N.id)\
                 .filter(models.TermI18N.name == "Partial").one()
-
-        self.options, self.args = parser.parse_args()
-        if len(self.args) != 1:
-            parser.error("No CSV file provided")
 
 
     def import_data(self):
@@ -188,9 +195,9 @@ class CsvImporter(object):
 
         repo = models.Repository(
             identifier="ehri%d%s" % (index, countrycode),
-            entity_type_id=models.Term.CORPORATE_BODY_ID,
+            entity_type_id=keys.TermKeys.CORPORATE_BODY_ID,
             source_culture=lang,
-            parent_id=models.Actor.ROOT_ID,
+            parent_id=keys.ActorKeys.ROOT_ID,
             description_status=self.status,
             description_detail=self.detail,
             desc_status=self.status,
@@ -199,7 +206,7 @@ class CsvImporter(object):
         self.session.add(repo)
         repo.set_i18n(dict(
             authorized_form_of_name=truncname,
-            desc_sources=record["Origin"]
+            desc_sources=record["Origin"],            
         ), lang)
 
         repo.slug = models.Slug(
@@ -208,7 +215,7 @@ class CsvImporter(object):
 
         if record["Comments"]:
             comment = models.Note(
-                    type_id=models.Term.MAINTENANCE_NOTE_ID,
+                    type_id=keys.TermKeys.MAINTENANCE_NOTE_ID,
                     user=self.user,
                     source_culture=lang,
                     scope="QubitRepository"
@@ -220,7 +227,7 @@ class CsvImporter(object):
 
         if record["Extra"]:
             extra = models.Note(
-                    type_id=models.Term.MAINTENANCE_NOTE_ID,
+                    type_id=keys.TermKeys.MAINTENANCE_NOTE_ID,
                     user=self.user,
                     source_culture=lang,
                     scope="QubitRepository"
@@ -232,7 +239,7 @@ class CsvImporter(object):
 
         if record["English Name"] and record["English Name"] != truncname:
             othername = models.OtherName(
-                    type_id=models.Term.OTHER_FORM_OF_NAME_ID,
+                    type_id=keys.TermKeys.OTHER_FORM_OF_NAME_ID,
                     source_culture=lang
             )
             repo.other_names.append(othername)
