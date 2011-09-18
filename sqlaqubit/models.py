@@ -17,10 +17,7 @@ from sqlalchemy.sql import and_, or_, not_
 from keys import TaxonomyKeys, TermKeys
 
 
-engine = create_engine(
-    "mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit",
-    convert_unicode=True
-)
+engine = create_engine("mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit?charset=utf8&use_unicode=0")
 Session = sessionmaker(bind=engine)
 Base = declarative_base(bind=engine)
 
@@ -418,7 +415,7 @@ class Slug(Base, SerialNumberMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="slugs")
+    object = relationship(Object, backref="slug", uselist=False, enable_typechecks=False)
     slug = Column(String(255))
 
 
