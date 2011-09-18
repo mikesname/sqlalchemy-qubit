@@ -51,6 +51,9 @@ class NestedSetExtension(MapperExtension):
     """Mapper extension to update table nested set records
     when an object is created, updated, or deleted."""
     def before_insert(self, mapper, connection, instance):
+        if instance.lft and instance.rgt:
+            return
+
         table = instance.nested_object_table()
         if not instance.parent:
             max = connection.scalar(func.max(table.c.rgt))
@@ -60,7 +63,6 @@ class NestedSetExtension(MapperExtension):
             right_most_sibling = connection.scalar(
                 select([table.c.rgt]).where(table.c.id==instance.parent.id)
             )
-
             connection.execute(
                 table.update(table.c.rgt>=right_most_sibling).values(
                     lft = case(
@@ -90,7 +92,6 @@ class NestedSetExtension(MapperExtension):
                         parent_id = old_parent_id
                     )
                 )
-
             # treat the node as deleted and inserted again
             self.before_delete(mapper, connection, instance)
             self.before_insert(mapper, connection, instance)
