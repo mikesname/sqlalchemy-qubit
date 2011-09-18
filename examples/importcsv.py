@@ -127,7 +127,8 @@ class CsvImporter(object):
 
         self.user = self.session.query(models.User).filter(
                 models.User.username == self.options.user).one()
-
+        self.parent = self.session.query(models.Actor)\
+                .filter(models.Actor.id==keys.ActorKeys.ROOT_ID).one()
         # load default status and detail... this is where
         # SQLAlchemy gets horrible
         self.status = self.session.query(models.Term)\
@@ -187,7 +188,7 @@ class CsvImporter(object):
             identifier="ehri%d%s" % (index, countrycode),
             entity_type_id=keys.TermKeys.CORPORATE_BODY_ID,
             source_culture=lang,
-            parent_id=keys.ActorKeys.ROOT_ID,
+            parent=self.parent,
             description_status=self.status,
             description_detail=self.detail,
             desc_status=self.status,
