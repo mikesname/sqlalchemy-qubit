@@ -54,19 +54,6 @@ def slugify(value):
     return SLUGIFY_HYPHENATE_RE.sub('-', value)
 
 
-def unique_slug(session, model, value):
-    """Get a slug not currently used in the DB."""
-    suffix = 0
-    potential = base = slugify(value)
-    while True:
-        if suffix:
-            potential = "-".join([base, str(suffix)])
-        if not session.query(model).filter(model.slug == value).count():
-            return potential
-        # we hit a conflicting slug, so bump the suffix & try again
-        suffix += 1
-
-
 def get_country_code(name):
     """Get the country code from a coutry name."""
     ccn = countrydata.cn_to_ccn.get(name)
@@ -154,6 +141,9 @@ class CsvImporter(object):
                 .join(models.TermI18N, models.Term.id == models.TermI18N.id)\
                 .filter(models.TermI18N.name == "Partial").one()
 
+        # running count of slugs used so far in the import transaction
+        self.slugs = {}
+
 
     def import_data(self):
         """Process file."""
@@ -209,9 +199,9 @@ class CsvImporter(object):
             desc_sources=record["Origin"],            
         ), lang)
 
-        repo.slug = models.Slug(
-            slug=unique_slug(self.session, models.Slug, truncname)
-        )
+        repo.slug.append(models.Slug(
+            slug=self.unique_slug(models.Slug, truncname) 
+        ))
 
         if record["Comments"]:
             comment = models.Note(
@@ -272,6 +262,22 @@ class CsvImporter(object):
         scriptprop = models.Property(name="script", source_culture=lang)
         repo.properties.append(scriptprop)
         scriptprop.set_i18n(dict(value=phpserialize.dumps(["Latn"])), lang)
+
+
+    def unique_slug(self, model, value):
+        """Get a slug not currently used in the DB."""
+        suffix = 0
+        potential = base = slugify(value)
+        while True:
+            if suffix:
+                potential = "-".join([base, str(suffix)])
+            if not self.session.query(model).filter(model.slug == potential).count()\
+                    and self.slugs.get(potential) is None:
+                self.slugs[potential] = True
+                return potential
+            # we hit a conflicting slug, so bump the suffix & try again
+            suffix += 1
+
 
 
 
