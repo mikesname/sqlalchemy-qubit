@@ -337,6 +337,7 @@ class Repository(Actor):
     desc_detail = relationship(Term, 
                 primaryjoin="and_(Repository.desc_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.DESCRIPTION_DETAIL_LEVEL_ID)
+    source_culture = Column(String(7))
 
 
 class User(Actor):
