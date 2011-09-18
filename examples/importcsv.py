@@ -29,9 +29,9 @@ import unicodedata
 
 from incf.countryutils import data as countrydata
 
-from sqlaqubit import models, keys, init_models
+from sqlaqubit import models, keys, init_models, test_engine
 
-sqlaqubit.init_models(sqlaqubit.engine)
+init_models(test_engine)
 
 
 HELP = """Import CSV files into the database."""
