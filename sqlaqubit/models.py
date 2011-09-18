@@ -8,7 +8,7 @@ import datetime
 from sqlalchemy import (
             Column, String, Integer, Float, Boolean, Text, 
             DateTime, ForeignKey, ForeignKeyConstraint,
-            create_engine, MetaData, select, case, func, Table)
+            select, case, func, Table)
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, MapperExtension, relationship, backref, mapper
 from sqlalchemy.orm.exc import NoResultFound
@@ -17,34 +17,29 @@ from sqlalchemy.sql import and_, or_, not_
 from keys import TaxonomyKeys, TermKeys
 
 
-engine = create_engine("mysql+mysqldb://qubit:changeme@localhost/test_ehriqubit?charset=utf8&use_unicode=0")
-Session = sessionmaker(bind=engine)
-Base = declarative_base(bind=engine)
+Base = declarative_base()
+Session = sessionmaker()
 
-metadata = MetaData(engine)
+
+def init_i18n_class(cls):
+    tablename = cls.__tablename__ + "_i18n"
+    if Base.metadata.tables.get(tablename) is not None: 
+        classname = cls.__name__ + "I18N"
+        i18nt = Table(tablename, Base.metadata, 
+                Column("id", ForeignKey("%s.id" % cls.__tablename__), primary_key=True),
+                Column("culture", String(25), primary_key=True),
+                ForeignKeyConstraint(["id"], ["%s.id" % cls.__tablename__]),
+                autoload=True, extend_existing=True)
+        globals()[classname] =type(classname, (Base,), dict(__table__=i18nt))
+        setattr(cls, tablename, relationship(classname, cascade="all,delete-orphan",
+                primaryjoin="%s.id == %s.id" % (classname, cls.__name__)))
+
 
 
 def cc2us(name):
     """Convert CamelCase to under_score."""
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-
-
-def annotate_i18n(cls):
-    """Decorator for generating an I18N table
-    for the given source table, and placing
-    an accessor relationship on the source."""
-    tablename = cls.__tablename__ + "_i18n"
-    classname = cls.__name__ + "I18N"
-    i18nt = Table(tablename, Base.metadata, 
-            Column("id", ForeignKey("%s.id" % cls.__tablename__), primary_key=True),
-            Column("culture", String(25), primary_key=True),
-            ForeignKeyConstraint(["id"], ["%s.id" % cls.__tablename__]),
-            autoload=True)
-    globals()[classname] = type(classname, (Base,), dict(__table__=i18nt))
-    setattr(cls, tablename, relationship(classname, cascade="all,delete-orphan",
-            primaryjoin="%s.id == %s.id" % (classname, cls.__name__)))
-    return cls
 
 
 class NestedSetExtension(MapperExtension):
@@ -287,14 +282,12 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
         return args
 
 
-@annotate_i18n
 class Taxonomy(Object, NestedObjectMixin, I18NMixin):
     """Taxonomy model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     usage = Column(String(255), nullable=True)
 
 
-@annotate_i18n
 class Term(Object, NestedObjectMixin, I18NMixin):
     """Term model."""
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
@@ -303,7 +296,6 @@ class Term(Object, NestedObjectMixin, I18NMixin):
     code = Column(String(255), nullable=True)
 
 
-@annotate_i18n
 class InformationObject(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
@@ -317,7 +309,6 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
 
 
-@annotate_i18n
 class Actor(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
@@ -335,7 +326,6 @@ class Actor(Object, NestedObjectMixin, I18NMixin):
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.DESCRIPTION_DETAIL_LEVEL_ID)
 
 
-@annotate_i18n
 class Repository(Actor):
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     identifier = Column(String(255))
@@ -359,7 +349,6 @@ class User(Actor):
     def __repr__(self):
         return "<%s: %s>" % (self.username, self.id)
 
-@annotate_i18n
 class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     """Property class."""
     __tablename__ = "property"
@@ -371,7 +360,6 @@ class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     name = Column(String(255))
 
 
-@annotate_i18n
 class Note(Base, NestedObjectMixin, TimeStampMixin, SerialNumberMixin, I18NMixin):
     """Note class."""
     __tablename__ = "note"
@@ -389,7 +377,6 @@ class Note(Base, NestedObjectMixin, TimeStampMixin, SerialNumberMixin, I18NMixin
     user = relationship(Actor, backref="user_notes", enable_typechecks=False)
 
 
-@annotate_i18n
 class ContactInformation(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     """Contact Information class."""
     __tablename__ = "contact_information"
@@ -420,7 +407,6 @@ class Slug(Base, SerialNumberMixin):
     slug = Column(String(255))
 
 
-@annotate_i18n
 class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     """Other Name class."""
     __tablename__ = "other_name"
