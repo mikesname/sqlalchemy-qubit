@@ -29,9 +29,8 @@ import unicodedata
 
 from incf.countryutils import data as countrydata
 
-from sqlaqubit import models, keys, init_models, test_engine
-
-init_models(test_engine)
+from sqlaqubit import models, keys, create_engine, init_models
+from sqlalchemy.engine.url import URL
 
 
 HELP = """Import CSV files into the database."""
@@ -108,6 +107,39 @@ class CsvImporter(object):
                 default=-1,
                 help="Import records up to this offset")
         parser.add_option(
+                "-U",
+                "--dbuser",
+                action="store",
+                dest="dbuser",
+                default="qubit",
+                help="Database user")
+        parser.add_option(
+                "-p",
+                "--dbpass",
+                action="store",
+                dest="dbpass",
+                help="Database password")
+        parser.add_option(
+                "-H",
+                "--dbhost",
+                action="store",
+                dest="dbhost",
+                default="localhost",
+                help="Database host name")
+        parser.add_option(
+                "-P",
+                "--dbport",
+                action="store",
+                dest="dbport",
+                help="Database host name")
+        parser.add_option(
+                "-D",
+                "--database",
+                action="store",
+                dest="database",
+                default="qubit",
+                help="Database name")
+        parser.add_option(
                 "-u",
                 "--user",
                 action="store",
@@ -126,6 +158,18 @@ class CsvImporter(object):
         if len(self.args) != 1:
             parser.error("No CSV file provided")
 
+        engine = create_engine(URL("mysql",
+            username=self.options.dbuser,
+            password=self.options.dbpass,
+            host=self.options.dbhost,
+            database=self.options.database,
+            port=self.options.dbport,
+            query=dict(
+                charset="utf8", 
+                use_unicode=0
+            )
+        ))
+        init_models(engine)
         self.session = models.Session()
 
         self.user = self.session.query(models.User).filter(
@@ -198,9 +242,12 @@ class CsvImporter(object):
             desc_detail=self.detail
         )
         self.session.add(repo)
+        revision = "%s: Imported from EHRI spreadsheet" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         repo.set_i18n(dict(
             authorized_form_of_name=truncname,
-            desc_sources=record["Origin"],            
+            desc_sources=record["Origin"],
+            desc_rules="ISDIAH",
+            desc_revision_history=revision)
         ), lang)
 
         repo.slug.append(models.Slug(
