@@ -126,7 +126,7 @@ INSERT INTO "actor_i18n" VALUES (NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NU
 INSERT INTO "actor_i18n" VALUES (NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,278,'en');
 CREATE TABLE "contact_information" (
   "actor_id" int(11) NOT NULL,
-  "primary_contact" tinyint(4) DEFAULT NULL,
+  "primary_contact" int(4) DEFAULT NULL,
   "contact_person" varchar(255) DEFAULT NULL,
   "street_address" text,
   "website" varchar(255) DEFAULT NULL,
@@ -1049,8 +1049,8 @@ CREATE TABLE "rights_term_relation" (
 CREATE TABLE "setting" (
   "name" varchar(255) DEFAULT NULL,
   "scope" varchar(255) DEFAULT NULL,
-  "editable" tinyint(4) DEFAULT '0',
-  "deleteable" tinyint(4) DEFAULT '0',
+  "editable" int(4) DEFAULT '0',
+  "deleteable" int(4) DEFAULT '0',
   "source_culture" varchar(7) NOT NULL,
   "id" int(11) NOT NULL ,
   "serial_number" int(11) NOT NULL DEFAULT '0',
