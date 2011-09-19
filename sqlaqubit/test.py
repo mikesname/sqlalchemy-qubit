@@ -33,19 +33,34 @@ class InformationObjectTest(unittest.TestCase):
         self.assertIsNotNone(parent)
 
     def test_create_repo(self):
+        numcreate = 5
         parent = self.session.query(models.Actor).\
                 filter(models.Actor.id == keys.ActorKeys.ROOT_ID).one()
         actors_before = self.session.query(models.Actor).count()
-        for i in range(5):
-            r = models.Repository(id=i+10000, identifier="repo%d" % i,
+        for i in range(numcreate):
+            r = models.Repository(identifier="repo%d" % i,
                     source_culture="en", parent=parent)
             self.session.add(r)
-            #r.set_i18n(dict(
-            #    authorized_form_of_name="Repo %d" % i), lang="en")
+            r.set_i18n(dict(
+                authorized_form_of_name="Repo %d" % i), lang="en")
         self.session.commit()
-        actors_after = self.session.query(models.Actor).count()
-        self.assertEqual(actors_before, actors_after - 5)
 
+        # create creation count compared to before
+        actors_after = self.session.query(models.Actor).count()
+        self.assertEqual(actors_before + numcreate, actors_after)
+
+        # check creation count based on query
+        q = self.session.query(models.Repository)\
+                .filter(models.Repository.identifier.startswith("repo")).all()
+        self.assertEqual(len(q), numcreate)
+
+        # check i18n for created objects
+        for i in range(numcreate):
+            self.assertEqual(
+                    q[i].get_i18n()["authorized_form_of_name"], "Repo %d" % i)
+
+        # check nested set behaviour
+        self.assertEqual(parent.rgt - parent.lft - 1, numcreate * 2)        
 
 
 if __name__ == "__main__":
