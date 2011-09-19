@@ -7,15 +7,14 @@ import datetime
 
 from sqlalchemy import (
             Column, String, Integer, Float, Boolean, Text, 
-            DateTime, ForeignKey, ForeignKeyConstraint,
-            select, case, func, Table)
+            DateTime, ForeignKey, ForeignKeyConstraint, Table)
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker, MapperExtension, relationship, backref, mapper
+from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import and_, or_, not_
 
 from keys import TaxonomyKeys, TermKeys
-
+from nested_set import NestedSetExtension
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -53,77 +52,6 @@ def cc2us(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-class NestedSetExtension(MapperExtension):
-    """Mapper extension to update table nested set records
-    when an object is created, updated, or deleted."""
-    def before_insert(self, mapper, connection, instance):
-        if instance.lft and instance.rgt:
-            return
-
-        table = instance.nested_object_table()
-        if not instance.parent:
-            max = connection.scalar(func.max(table.c.rgt))
-            instance.lft = max + 1
-            instance.rgt = max + 2
-        else:
-            right_most_sibling = connection.scalar(
-                select([table.c.rgt]).where(table.c.id==instance.parent.id)
-            )
-            connection.execute(
-                table.update(table.c.rgt>=right_most_sibling).values(
-                    lft = case(
-                            [(table.c.lft>right_most_sibling, table.c.lft + 2)],
-                            else_ = table.c.lft
-                          ),
-                    rgt = case(
-                            [(table.c.rgt>=right_most_sibling, table.c.rgt + 2)],
-                            else_ = table.c.rgt
-                          )
-                )
-            )
-            instance.lft = right_most_sibling
-            instance.rgt = right_most_sibling + 1
-
-    def before_update(self, mapper, connection, instance):
-        """Updated nested tree values."""
-        table = instance.nested_object_table()
-        old_parent_id = connection.scalar(
-                select([table.c.parent_id]).where(table.c.id==instance.id)
-        )
-        if old_parent_id != instance.parent_id:
-            if instance.parent_id is None:
-                # reparent any child nodes to the old parent
-                connection.execute(
-                    table.update(table.c.parent_id == old_parent_id).values(
-                        parent_id = old_parent_id
-                    )
-                )
-            # treat the node as deleted and inserted again
-            self.before_delete(mapper, connection, instance)
-            self.before_insert(mapper, connection, instance)
-
-    def before_delete(self, mapper, connection, instance):
-        """Delete nested tree values for this model."""
-        table = instance.nested_object_table()
-        delta = instance.rgt - instance.lft + 1
-
-        connection.execute(
-            table.update(table.c.rgt>=instance.rgt).values(
-                lft = case(
-                    [(table.c.lft > instance.lft, table.c.lft - delta)],
-                    else_ = table.c.lft
-                ),
-                rgt = case(
-                    [(table.c.rgt >= instance.rgt, table.c.rgt - delta)],
-                    else_ = table.c.rgt
-                )
-            )
-        )
-        instance.lft = None
-        instance.rgt = None
-
-
-
 class NestedObjectMixin(object):
     """
     Mixin class for classes with lft/rgt heirarchy fields.  These creates a
@@ -137,7 +65,8 @@ class NestedObjectMixin(object):
     @declared_attr
     def parent(cls):
         return relationship("%s" % cls.__name__,
-                backref="children", order_by="%s.lft" % cls.__name__,
+                backref=backref("children", enable_typechecks=False),
+                order_by="%s.lft" % cls.__name__,
                 remote_side="%s.id" % cls.__name__,
                 primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)),
                 enable_typechecks=False)
