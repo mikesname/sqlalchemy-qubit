@@ -22,6 +22,8 @@ Session = sessionmaker()
 
 
 def init_i18n_class(cls):
+    """Create, via metadata reflection, an I18N class object
+    for i18n-enabled tables."""
     tablename = cls.__tablename__ + "_i18n"
     if Base.metadata.tables.get(tablename) is not None: 
         classname = cls.__name__ + "I18N"
@@ -34,6 +36,15 @@ def init_i18n_class(cls):
         setattr(cls, tablename, relationship(classname, cascade="all,delete-orphan",
                 primaryjoin="%s.id == %s.id" % (classname, cls.__name__)))
 
+def unregister_i18n():
+    """Remove i18n tables from the class registry.
+    FIXME: There should be a better way of doing this."""
+    delete = []
+    for name, cls in Base._decl_class_registry.iteritems():
+        if name.endswith("I18N"):
+            delete.append(name)
+    for name in delete:
+        del Base._decl_class_registry[name]
 
 
 def cc2us(name):
@@ -125,7 +136,8 @@ class NestedObjectMixin(object):
         return relationship("%s" % cls.__name__,
                 backref="children", order_by="%s.lft" % cls.__name__,
                 remote_side="%s.id" % cls.__name__,
-                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)))
+                primaryjoin=("%s.id==%s.parent_id" % (cls.__name__, cls.__name__)),
+                enable_typechecks=False)
 
     @declared_attr
     def lft(cls):
