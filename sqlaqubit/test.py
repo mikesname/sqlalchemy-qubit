@@ -123,6 +123,33 @@ class InformationObjectTest(unittest.TestCase):
 
         self.assertEqual(child1.rgt - child1.lft - 1, 0)
 
+    def test_delete(self):
+        """Test nested set behaviour works as expected."""
+        numcreate = 5
+        parent = self.session.query(models.Actor).\
+                with_polymorphic(models.Repository).\
+                filter(models.Actor.id == keys.ActorKeys.ROOT_ID).one()
+
+        cparent = parent
+        repos = []
+        for i in range(numcreate):
+            r = models.Repository(identifier="repo%d" % i,
+                    source_culture="en", parent=cparent)            
+            self.session.add(r)
+            cparent = r
+            repos.append(r)
+        self.session.commit()
+
+        self.assertEqual(parent.rgt - parent.lft - 1, numcreate * 2)
+
+        numrepos = self.session.query(models.Repository).count()
+        self.assertEqual(numrepos, numcreate)
+
+        [self.session.delete(r) for r in repos]
+        self.session.commit()
+
+        numrepos = self.session.query(models.Repository).count()
+        self.assertEqual(numrepos, 0)
 
 
 
