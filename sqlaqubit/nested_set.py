@@ -1,6 +1,9 @@
 """
 Nested set mapper for updating the database when a nested
-item is inserted, deleted, or moved.
+item is inserted, deleted, or moved.  Implementation
+algorithms largely borrowed from here:
+
+    https://github.com/django-mptt
 """
 
 from sqlalchemy import select, case, func
