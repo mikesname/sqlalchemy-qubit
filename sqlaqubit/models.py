@@ -119,6 +119,9 @@ class NestedSetExtension(MapperExtension):
                 )
             )
         )
+        instance.lft = None
+        instance.rgt = None
+
 
 
 class NestedObjectMixin(object):
@@ -276,7 +279,7 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
         super(Object, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self.id)
+        return "<%s (%s): %s>" % (self.__class__.__name__, self.class_name, self.id)
 
     @declared_attr
     def __tablename__(cls):
