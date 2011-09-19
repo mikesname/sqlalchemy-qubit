@@ -646,7 +646,7 @@ CREATE TABLE "object" (
   "class_name" varchar(255) DEFAULT NULL,
   "created_at" datetime NOT NULL,
   "updated_at" datetime NOT NULL,
-  "id" int(11) PRIMARY KEY,
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
   "serial_number" int(11) NOT NULL DEFAULT '0'
 );
 INSERT INTO "object" VALUES ('QubitInformationObject','2011-09-16 20:04:49','2011-09-16 20:04:49',1,0);
