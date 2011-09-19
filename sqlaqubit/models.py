@@ -240,19 +240,6 @@ class Term(Object, NestedObjectMixin, I18NMixin):
     code = Column(String(255), nullable=True)
 
 
-class InformationObject(Object, NestedObjectMixin, I18NMixin):
-    id = Column(Integer, ForeignKey('object.id'), primary_key=True)
-    identifier = Column(String(255))
-    oai_local_identifier = Column(Integer, autoincrement=True)
-    level_of_description_id = Column(Integer, ForeignKey('term.id'))
-    level_of_description = relationship(Term, 
-                primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
-                    "Term.taxonomy_id==%s)" % TaxonomyKeys.LEVEL_OF_DESCRIPTION_ID)
-
-    def __repr__(self):
-        return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
-
-
 class Actor(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     corporate_body_identifiers = Column(String(255))
@@ -284,6 +271,23 @@ class Repository(Actor):
     source_culture = Column(String(7))
 
 
+class InformationObject(Object, NestedObjectMixin, I18NMixin):
+    id = Column(Integer, ForeignKey('object.id'), primary_key=True)
+    identifier = Column(String(255))
+    oai_local_identifier = Column(Integer, autoincrement=True)
+    level_of_description_id = Column(Integer, ForeignKey('term.id'))
+    level_of_description = relationship(Term, 
+                primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.LEVEL_OF_DESCRIPTION_ID)
+    repository_id = Column(Integer, ForeignKey("repository.id"))
+    repository = relationship(Repository, backref=backref("information_objects"),
+            primaryjoin="Repository.id == InformationObject.repository_id",
+            cascade="all,delete-orphan")
+
+    def __repr__(self):
+        return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
+
+
 class User(Actor):
     id = Column(Integer, ForeignKey('actor.id'), primary_key=True)
     username = Column(String(255))
@@ -300,7 +304,8 @@ class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="properties", enable_typechecks=False)
+    object = relationship(Object, backref=backref("properties", cascade="all,delete-orphan"), 
+            enable_typechecks=False)
     scope = Column(String(255), nullable=True)
     name = Column(String(255))
 
@@ -312,7 +317,8 @@ class Note(Base, NestedObjectMixin, TimeStampMixin, SerialNumberMixin, I18NMixin
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="notes", enable_typechecks=False)
+    object = relationship(Object, backref=backref("notes", cascade="all,delete-orphan"),
+            enable_typechecks=False)
     type_id = Column(Integer, ForeignKey("term.id"))
     type = relationship(Term,
                 primaryjoin="and_(Note.type_id==Term.id, "
@@ -328,7 +334,8 @@ class ContactInformation(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     actor_id = Column(Integer, ForeignKey("object.id"))
-    actor = relationship(Actor, backref="contacts", enable_typechecks=False)
+    actor = relationship(Actor, backref=backref("contacts", 
+            cascade="all,delete-orphan"), enable_typechecks=False)
     primary_contact = Column(Boolean, nullable=True)
     contact_person = Column(String(255), nullable=True)
     street_address = Column(Text, nullable=True)
@@ -348,7 +355,8 @@ class Slug(Base, SerialNumberMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="slug", uselist=False, enable_typechecks=False)
+    object = relationship(Object, backref=backref("slug", cascade="all,delete-orphan"),
+            uselist=False, enable_typechecks=False)
     slug = Column(String(255))
 
 
@@ -358,7 +366,8 @@ class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
-    object = relationship(Object, backref="other_names", enable_typechecks=False)
+    object = relationship(Object, backref=backref("other_names",
+        cascade="all,delete-orphan"), enable_typechecks=False,)
     type_id = Column(Integer, ForeignKey("term.id"))
     type = relationship(Term,
                 primaryjoin="and_(OtherName.type_id==Term.id, "
