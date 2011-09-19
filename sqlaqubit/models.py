@@ -7,7 +7,7 @@ import datetime
 
 from sqlalchemy import (
             Column, String, Integer, Float, Boolean, Text, 
-            DateTime, ForeignKey, ForeignKeyConstraint, Table)
+            DateTime, Date, Time, ForeignKey, ForeignKeyConstraint, Table)
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
@@ -286,6 +286,28 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
 
     def __repr__(self):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
+
+
+class Event(Object, I18NMixin):
+    """Event object."""
+    id = Column(Integer, ForeignKey('object.id'), primary_key=True)
+    start_date = Column(Date, nullable=True)
+    start_time = Column(Time, nullable=True)
+    end_date = Column(Date, nullable=True)
+    end_time = Column(Time, nullable=True)
+    type_id = Column(Integer, ForeignKey("term.id"))
+    type = relationship(Term, 
+                primaryjoin="and_(Event.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.EVENT_TYPE_ID)
+    information_object_id = Column(Integer, ForeignKey("information_object.id"),
+                nullable=True)
+    information_object = relationship(InformationObject, backref="events",
+            primaryjoin="InformationObject.id == Event.information_object_id",
+            cascade="all,delete-orphan")
+    actor_id = Column(Integer, ForeignKey("actor.id"), nullable=True)
+    actor = relationship(Actor, backref="events",
+            primaryjoin="Actor.id == Event.actor_id",
+            cascade="all,delete-orphan")
 
 
 class User(Actor):
