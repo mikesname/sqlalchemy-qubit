@@ -247,7 +247,7 @@ class CsvImporter(object):
             authorized_form_of_name=truncname,
             desc_sources=record["Origin"],
             desc_rules="ISDIAH",
-            desc_revision_history=revision)
+            desc_revision_history=revision
         ), lang)
 
         repo.slug.append(models.Slug(
