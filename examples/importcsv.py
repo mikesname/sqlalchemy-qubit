@@ -278,9 +278,9 @@ class CsvImporter(object):
                     content=record["Extra"],
             ), lang)
 
-        if record["English Name"] and record["English Name"] != truncname:
+        if record["English Name"] and record["English Name"][0:255] != truncname:
             othername = models.OtherName(
-                    type_id=keys.TermKeys.OTHER_FORM_OF_NAME_ID,
+                    type_id=keys.TermKeys.PARALLEL_FORM_OF_NAME_ID,
                     source_culture=lang
             )
             repo.other_names.append(othername)
