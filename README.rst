@@ -7,3 +7,39 @@ affiliated with the creators of the Qubit Toolkit.
 
 http://qubit-toolkit.org/
 
+Example usage:::
+
+    #import the library
+    from sqlaqubit import models, init_models, create_engine
+
+    # create an engine using the appropriate DB string: not charset is important
+    engine = create_engine("mysql://qubit:changeme@localhost/test_ehriqubit?charset=utf8")
+
+    # initialise the models.  This prompts sqlalchemy to introspect the database and
+    # create appropriate I18N models for each of the defined I18N-enabled entities
+    init_models(engine)
+
+    # start a session
+    session = models.Session()
+
+    # list all the repository identifiers
+    for repo in session.query(models.Repository).all():
+        print repo.identifier
+
+    # get specific repository
+    repo = session.query(models.Repository)\
+            .filter(models.Repository.identifier == "ehri11AT")\
+            .first()
+
+    # show i18n fields for language "en" (the default)
+    for k, v in repo.get_i18n("en").iteritems():
+        print "%-20s : %s" % (k, v)
+
+    # set i18n values
+    repo.set_i18n(
+            dict(authorized_form_of_name="Bludenz, Stadtarchiv"), "en")
+
+    # don't forget to commit the changes commit the changes
+    session.commit()
+
+
