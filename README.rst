@@ -7,7 +7,7 @@ affiliated with the creators of the Qubit Toolkit.
 
 http://qubit-toolkit.org/
 
-Example usage::
+Example usage:
 
     #import the library
     from sqlaqubit import models, init_models, create_engine
