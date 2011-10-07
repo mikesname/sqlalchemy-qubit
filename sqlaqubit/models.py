@@ -281,8 +281,7 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.LEVEL_OF_DESCRIPTION_ID)
     repository_id = Column(Integer, ForeignKey("repository.id"))
     repository = relationship(Repository, backref=backref("information_objects"),
-            primaryjoin="Repository.id == InformationObject.repository_id",
-            cascade="all,delete-orphan")
+            primaryjoin="Repository.id == InformationObject.repository_id")
 
     def __repr__(self):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
@@ -302,12 +301,10 @@ class Event(Object, I18NMixin):
     information_object_id = Column(Integer, ForeignKey("information_object.id"),
                 nullable=True)
     information_object = relationship(InformationObject, backref="events",
-            primaryjoin="InformationObject.id == Event.information_object_id",
-            cascade="all,delete-orphan")
+            primaryjoin="InformationObject.id == Event.information_object_id")
     actor_id = Column(Integer, ForeignKey("actor.id"), nullable=True)
     actor = relationship(Actor, backref="events",
-            primaryjoin="Actor.id == Event.actor_id",
-            cascade="all,delete-orphan")
+            primaryjoin="Actor.id == Event.actor_id")
 
 
 class User(Actor):
