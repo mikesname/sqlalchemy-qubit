@@ -17,8 +17,6 @@ except ImportError:
 from distutils.command.install_data import install_data
 from distutils.command.install import INSTALL_SCHEMES
 
-import sqlaqubit as distmeta
-
 packages, data_files = [], []
 root_dir = os.path.dirname(__file__)
 if root_dir != '':
@@ -90,18 +88,15 @@ setup(
     data_files=data_files,
     scripts=[],
     zip_safe=False,
-    install_requires=[],
+    install_requires=["sqlalchemy>=0.7.1"],
     classifiers=[
         "Development Status :: 1 - Alpha",
-        "Framework :: Django",
         "Environment :: Console",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: BSD License",
         "Operating System :: POSIX",
-        "Topic :: Communications",
-        "Topic :: System :: Distributed Computing",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     long_description=long_description,
