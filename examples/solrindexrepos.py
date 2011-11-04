@@ -8,6 +8,7 @@ import urllib
 import httplib2
 import json
 
+from incf.countryutils import data as countrydata
 from sqlaqubit import models, keys, create_engine, init_models
 from sqlalchemy.engine.url import URL
 from sqlalchemy import and_
@@ -114,6 +115,11 @@ def get_options():
             dest="batchsize",
             default=100,
             help="Batch size")
+    parser.add_option(
+            "--dumpjson",
+            action="store",
+            dest="dumpjson",
+            help="Dump JSON instead of updating Solr")
     return parser.parse_args()
 
 
@@ -163,6 +169,7 @@ class IndexRepos(object):
         repos = query.all()
         print "Indexing %d repos" % len(repos)
         total = 0
+        batch = 0
         data = []
         for repo in repos:
             total += 1
@@ -172,7 +179,12 @@ class IndexRepos(object):
             print "\n\nIndexing repo: %s" % repo.identifier
             data.append(self.get_solr_data(repo))
             if len(data) == self.options.batchsize or total == len(repos): 
-                self.index_batch(data)
+                if self.options.dumpjson:
+                    with open("%s_%s" % (self.options.dumpjson, batch), "w") as f:
+                        json.dump(data, f)
+                else:
+                    self.index_batch(data)
+                batch += 1    
                 data = []
 
 
@@ -215,6 +227,8 @@ class IndexRepos(object):
             if contact.latitude and contact.longitude:
                 data["location"] = "%s,%s" % (
                     contact.latitude, contact.longitude)
+            if contact.country_code:
+                data["country"] = get_country_from_code(contact.country_code)
         return data                
 
 
