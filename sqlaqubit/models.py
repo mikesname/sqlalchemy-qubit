@@ -268,6 +268,7 @@ class Repository(Actor):
     desc_detail = relationship(Term, 
                 primaryjoin="and_(Repository.desc_detail_id==Term.id, "
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.DESCRIPTION_DETAIL_LEVEL_ID)
+    upload_limit = Column(Float, nullable=True, default=-1.0)
     source_culture = Column(String(7))
 
 
@@ -329,10 +330,9 @@ class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     name = Column(String(255))
 
 
-class Note(Base, NestedObjectMixin, TimeStampMixin, SerialNumberMixin, I18NMixin):
+class Note(Base, SerialNumberMixin, I18NMixin):
     """Note class."""
     __tablename__ = "note"
-    __mapper_args__ = dict(extension=NestedSetExtension(), batch=False)
 
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id"))
@@ -379,7 +379,7 @@ class Slug(Base, SerialNumberMixin):
     slug = Column(String(255))
 
 
-class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
+class OtherName(Base, SerialNumberMixin, I18NMixin):
     """Other Name class."""
     __tablename__ = "other_name"
 
@@ -388,6 +388,8 @@ class OtherName(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     object = relationship(Object, backref=backref("other_names",
         cascade="all,delete-orphan"), enable_typechecks=False,)
     type_id = Column(Integer, ForeignKey("term.id"))
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     type = relationship(Term,
                 primaryjoin="and_(OtherName.type_id==Term.id, "
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.ACTOR_NAME_TYPE_ID)
