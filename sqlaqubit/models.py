@@ -318,7 +318,7 @@ class User(Actor):
     def __repr__(self):
         return "<%s: %s>" % (self.username, self.id)
 
-class Property(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
+class Property(Base, SerialNumberMixin, I18NMixin):
     """Property class."""
     __tablename__ = "property"
 
