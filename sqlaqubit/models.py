@@ -276,6 +276,14 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
     id = Column(Integer, ForeignKey('object.id'), primary_key=True)
     identifier = Column(String(255))
     oai_local_identifier = Column(Integer, autoincrement=True)
+    description_status_id = Column(Integer, ForeignKey('term.id'))
+    description_status = relationship(Term, 
+                primaryjoin="and_(InformationObject.description_status_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.DESCRIPTION_STATUS_ID)
+    description_detail_id = Column(Integer, ForeignKey('term.id'))
+    description_detail = relationship(Term, 
+                primaryjoin="and_(InformationObject.description_detail_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.DESCRIPTION_DETAIL_LEVEL_ID)
     level_of_description_id = Column(Integer, ForeignKey('term.id'))
     level_of_description = relationship(Term, 
                 primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
@@ -283,6 +291,7 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
     repository_id = Column(Integer, ForeignKey("repository.id"))
     repository = relationship(Repository, backref=backref("information_objects"),
             primaryjoin="Repository.id == InformationObject.repository_id")
+    source_standard = Column(String(255))
 
     def __repr__(self):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
@@ -366,6 +375,24 @@ class ContactInformation(Base, TimeStampMixin, SerialNumberMixin, I18NMixin):
     country_code = Column(String(255), nullable=True)
     longitude = Column(Float, nullable=True)
     latitude = Column(Float, nullable=True)
+
+
+class Status(Base, SerialNumberMixin):
+    """Slug class."""
+    __tablename__ = "status"
+
+    id = Column(Integer, primary_key=True)
+    object_id = Column(Integer, ForeignKey("object.id"))
+    object = relationship(Object, backref=backref("status", cascade="all,delete-orphan"),
+            uselist=False, enable_typechecks=False)
+    type_id = Column(Integer, ForeignKey("term.id"))
+    type = relationship(Term,
+                primaryjoin="and_(Status.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.STATUS_TYPE_ID)
+    status_id = Column(Integer, ForeignKey("term.id"))
+    status = relationship(Term,
+                primaryjoin="and_(Status.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.PUBLICATION_STATUS_ID)
 
 
 class Slug(Base, SerialNumberMixin):
