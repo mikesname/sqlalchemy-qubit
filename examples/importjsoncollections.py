@@ -229,7 +229,7 @@ class CollectionImport(object):
             d1 = datetime.date(int(m1.group(1)), 1, 1)
             d2 = datetime.date(int(m1.group(2)), 12, 31)
             event = models.Event(start_date=str(d1), end_date=str(d2),
-                    type_id=keys.TermKeys.CREATION_ID, information_object=info,
+                    type_id=keys.TermKeys.CREATION_ID, information_object_id=info.id,
                     source_culture=lang)
             return event
         m2 = re.search("^c (\d{4})$", datestr.strip())
