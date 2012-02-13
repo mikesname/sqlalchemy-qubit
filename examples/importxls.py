@@ -8,9 +8,7 @@ from sqlaqubit.validators import xls
 
 
 if __name__ == "__main__":
-    sheet = sys.argv[1]
-    validator = xls.XLSValidator(sheet)
-    validator.validate_headers()
+    validator = xls.XLSRepositoryValidator(sys.argv[1])
     validator.validate()
     validator.print_errors()
 
