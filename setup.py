@@ -94,6 +94,7 @@ setup(
         "incf.countryutils",
         "phpserialize",
         "xlrd",
+        "MySQL-python",
     ],
     classifiers=[
         "Development Status :: 1 - Alpha",
