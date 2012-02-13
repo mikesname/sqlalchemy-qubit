@@ -16,6 +16,7 @@ class XLSError(Exception):
 
 
 ERROR_CODES = {
+        u"bad_xls": u"Unable to open XLS file.",
         u"worksheet_not_found": u"Data worksheet must be the first sheet in the workbook.",
         u"unexpected_heading": u"Unexpected headings on worksheet",
 }
@@ -30,14 +31,21 @@ class XLSValidator(object):
     # by two commas (yep, it's gross): 
     MULTIPLES = []
 
-    def __init__(self, xlsfile, raise_err=False):
+    def __init__(self, raise_err=False):
+        self.workbook = None
+        self.sheet = None
+        
+        self.raise_err = raise_err
+        self.errors = []
+
+    def open_xls(self, xlsfile):
         self.workbook = xlrd.open_workbook(xlsfile, formatting_info=True)
         try:
             self.sheet = self.workbook.sheet_by_index(0)
+        except IOError:
+            self.add_error(None, ERROR_CODES["bad_xls"], fatal=True)
         except IndexError:
             self.add_error(None, ERROR_CODES["worksheet_not_found"], fatal=True)
-        self.raise_err = raise_err
-        self.errors = []
 
     def is_valid(self):
         return len(self.errors) > 0
@@ -69,8 +77,9 @@ class XLSValidator(object):
                 self.add_error(self.HEADING_ROW, "%s: %s" % (err, diff))
             raise XLSError(err)
 
-    def validate(self):
+    def validate(self, xlspath):
         """Check everything is A-Okay with the XLS data."""
+        self.open_xls(xlspath)
         self.validate_headers()
         self.check_unique_columns()
         for row in range(self.HEADING_ROW+1, self.sheet.nrows):
