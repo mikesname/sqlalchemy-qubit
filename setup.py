@@ -78,7 +78,7 @@ else:
 
 setup(
     name="sqlalchemy-qubit",
-    version="0.1",
+    version="0.2",
     description="An mapping of the Qubit data model to SQLAlchemy classes",
     author="Mike Bryant",
     url="http://github.com/mikesname/sqlalchemy-qubit/tree/master",
