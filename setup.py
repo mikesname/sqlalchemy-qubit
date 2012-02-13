@@ -88,7 +88,13 @@ setup(
     data_files=data_files,
     scripts=[],
     zip_safe=False,
-    install_requires=["sqlalchemy>=0.7.1"],
+    install_requires=[
+        "ordereddict",
+        "sqlalchemy>=0.7.1",
+        "incf.countryutils",
+        "phpserialize",
+        "xlrd",
+    ],
     classifiers=[
         "Development Status :: 1 - Alpha",
         "Environment :: Console",
