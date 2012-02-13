@@ -66,9 +66,8 @@ class XLSValidator(object):
         err = ERROR_CODES["unexpected_heading"]
         if len(diffs) > 0:
             for diff in diffs:
-                self.add_error(self.HEADING_ROW, "%s: %s" % (
-                    , diff))
-            raise XLSError(ERROR_CODES["unexpected_heading"])
+                self.add_error(self.HEADING_ROW, "%s: %s" % (err, diff))
+            raise XLSError(err)
 
     def validate(self):
         """Check everything is A-Okay with the XLS data."""
