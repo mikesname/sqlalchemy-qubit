@@ -93,7 +93,8 @@ class XLSValidator(object):
     def check_unique_columns(self):
         """Check columns which should contain unique values
         actually do."""
-        for col in self.UNIQUES:
+        for colhead in self.UNIQUES:
+            col = self.HEADERS.index(colhead)
             rowsdata = [(i + self.HEADING_ROW, c.value) for i, c in \
                     enumerate(self.sheet.col_slice(
                         col, self.HEADING_ROW, self.sheet.nrows))]
@@ -123,7 +124,8 @@ class XLSValidator(object):
 
 
 class XLSRepositoryValidator(XLSValidator):
-    """Validator for Repository import."""    
+    """Validator for Repository import."""
+    name = "Repositories"
     HEADING_ROW = 1 # Zero-based
     HEADINGS = [
         u'identifier',
@@ -161,7 +163,7 @@ class XLSRepositoryValidator(XLSValidator):
         u'notes'
     ]
     UNIQUES = [
-        1,
+        "authorized_form_of_name",
     ]
     MULTIPLES = [
         "parallel_forms_of_name",
@@ -189,6 +191,7 @@ class XLSRepositoryValidator(XLSValidator):
 
 class XLSCollectionValidator(XLSValidator):
     """Validator for Collection import."""    
+    name = "Collections"
     HEADING_ROW = 1 # Zero-based
     HEADINGS = [
         u'identifier',
@@ -214,7 +217,7 @@ class XLSCollectionValidator(XLSValidator):
         u'notes'
     ]
     UNIQUES = [
-        1,
+        "identifier",
     ]
     MULTIPLES = [
         "other_names",
