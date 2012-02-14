@@ -187,3 +187,46 @@ class XLSRepositoryValidator(XLSValidator):
         self.check_countrycode(rownum, rowdata)
 
 
+class XLSCollectionValidator(XLSValidator):
+    """Validator for Collection import."""    
+    HEADING_ROW = 1 # Zero-based
+    HEADINGS = [
+        u'identifier',
+        u'repository',
+        u'name',
+        u'other_names',
+        u'entity_type',
+        u'history',
+        u'geocultural_context',
+        u'collecting_policies',
+        u'holdings',
+        u'finding_aids',
+        u'research_services',
+        u'desc_institution_identifier',
+        u'institution_responsible_identifier',
+        u'rules',
+        u'status',
+        u'dates_of_existence',
+        u'language_of_description',
+        u'script_of_description',
+        u'sources',
+        u'priority',
+        u'notes'
+    ]
+    UNIQUES = [
+        1,
+    ]
+    MULTIPLES = [
+        "other_names",
+        "sources",
+        "dates_of_existence",
+        "language",
+        "script",
+    ]
+
+    def validate_row(self, rownum, rowdata):
+        """Check a single row of data."""
+        super(XLSRepositoryValidator, self).validate_row(rownum, rowdata)
+
+
+
