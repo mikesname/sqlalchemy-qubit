@@ -89,11 +89,9 @@ setup(
     scripts=[],
     zip_safe=False,
     install_requires=[
-        "ordereddict",
         "sqlalchemy>=0.7.1",
         "incf.countryutils",
         "phpserialize",
-        "xlrd",
         "MySQL-python",
     ],
     classifiers=[

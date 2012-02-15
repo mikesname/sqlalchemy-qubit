@@ -1,5 +1,3 @@
-ordereddict
 sqlalchemy>=0.7.1
 incf.countryutils
 phpserialize
-xlrd
