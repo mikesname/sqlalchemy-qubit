@@ -200,9 +200,9 @@ class XLSCollectionValidator(XLSValidator):
     HEADING_ROW = 1 # Zero-based
     HEADINGS = [
         u'institution_identifier',
-        u'collection_identifier',
+        u'identifier',
         u'title',
-        u'other_forms_of_name',
+        u'other_forms_of_title',
         u'dates',
         u'level_of_description',
         u'extent_and_medium',
@@ -215,7 +215,7 @@ class XLSCollectionValidator(XLSValidator):
         u'location_of_originals',
         u'location_of_copies',
         u'publication_note',
-        u'ehri_notes',
+        u'notes',
         u'subject_access',
         u'place_access',
         u'name_access',
@@ -234,10 +234,10 @@ class XLSCollectionValidator(XLSValidator):
         u'ehri_copyright',
     ]
     UNIQUES = [
-        "collection_identifier",
+        "identifier",
     ]
     MULTIPLES = [
-        "other_forms_of_name",
+        "other_forms_of_title",
         "sources",
         "dates",
         "dates_of_administration",
