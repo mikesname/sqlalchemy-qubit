@@ -79,8 +79,13 @@ class XLSValidator(object):
 
     def validate(self, xlspath):
         """Check everything is A-Okay with the XLS data."""
-        self.open_xls(xlspath)
-        self.validate_headers()
+        # These actions will stop any further validation
+        # if they error
+        try:
+            self.open_xls(xlspath)
+            self.validate_headers()
+        except Exception:
+            return
         self.check_unique_columns()
         for row in range(self.HEADING_ROW+1, self.sheet.nrows):
             data = [d.value for d in self.sheet.row_slice(row, 0, len(self.HEADINGS))]
