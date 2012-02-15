@@ -249,7 +249,7 @@ class XLSCollectionValidator(XLSValidator):
 
     def validate_row(self, rownum, rowdata):
         """Check a single row of data."""
-        super(XLSRepositoryValidator, self).validate_row(rownum, rowdata)
+        super(XLSCollectionValidator, self).validate_row(rownum, rowdata)
 
 
 
