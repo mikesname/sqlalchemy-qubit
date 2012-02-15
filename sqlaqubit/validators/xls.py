@@ -99,7 +99,7 @@ class XLSValidator(object):
         """Check columns which should contain unique values
         actually do."""
         for colhead in self.UNIQUES:
-            col = self.HEADERS.index(colhead)
+            col = self.HEADINGS.index(colhead)
             rowsdata = [(i + self.HEADING_ROW, c.value) for i, c in \
                     enumerate(self.sheet.col_slice(
                         col, self.HEADING_ROW, self.sheet.nrows))]
