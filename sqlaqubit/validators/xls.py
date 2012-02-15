@@ -115,7 +115,7 @@ class XLSValidator(object):
                     header = self.sheet.cell(self.HEADING_ROW, col).value
                     self.add_error(
                             rows[0], "Duplicate on unique column: %s: '%s' %s" % (
-                                header, key, rows[1:]))
+                                header, key, [r+1 for r in rows[1:]]))
 
 
     def check_multiples(self, rownum, rowdata):
