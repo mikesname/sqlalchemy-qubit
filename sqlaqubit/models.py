@@ -45,6 +45,13 @@ def unregister_i18n():
     for name in delete:
         del Base._decl_class_registry[name]
 
+# association table for object/term many-to-many
+object_term_relation = Table("object_term_relation", Base.metadata,
+        Column("object_id", Integer, ForeignKey("object.id")),
+        Column("term_id", Integer, ForeignKey("term.id")),
+)
+
+
 
 def cc2us(name):
     """Convert CamelCase to under_score."""
@@ -200,6 +207,7 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
     """Qubit Object base class."""
     id = Column(Integer, primary_key=True)
     class_name = Column("class_name", String(25))
+    terms = relationship("Term", secondary=object_term_relation)
     __mapper_args__ = dict(polymorphic_on=class_name)
 
     def __init__(self, *args, **kwargs):
@@ -292,6 +300,9 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
     repository = relationship(Repository, backref=backref("information_objects"),
             primaryjoin="Repository.id == InformationObject.repository_id")
     source_standard = Column(String(255))
+
+    # TODO: Add accessors for subject and place, i.e, related terms with Taxonomy
+    # ids SUBJECT_ID and PLACE_ID
 
     def __repr__(self):
         return "<%s: %s> (%d, %d)" % (self.class_name, self.identifier, self.lft, self.rgt)
