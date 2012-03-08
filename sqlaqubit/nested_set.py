@@ -20,7 +20,7 @@ class NestedSetExtension(MapperExtension):
             return
 
         table = instance.nested_object_table()
-        if not instance.parent:
+        if not instance.parent_id:
             max = connection.scalar(func.max(table.c.rgt))
             instance.lft = max + 1
             instance.rgt = max + 2
