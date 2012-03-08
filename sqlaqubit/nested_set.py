@@ -26,7 +26,7 @@ class NestedSetExtension(MapperExtension):
             instance.rgt = max + 2
         else:
             right_most_sibling = connection.scalar(
-                select([table.c.rgt]).where(table.c.id==instance.parent.id)
+                select([table.c.rgt]).where(table.c.id==instance.parent_id)
             )
             connection.execute(
                 table.update(table.c.rgt>=right_most_sibling).values(
