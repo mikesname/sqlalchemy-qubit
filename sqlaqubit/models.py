@@ -432,3 +432,26 @@ class OtherName(Base, SerialNumberMixin, I18NMixin):
                 primaryjoin="and_(OtherName.type_id==Term.id, "
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.ACTOR_NAME_TYPE_ID)
 
+
+class Relation(Object, I18NMixin):
+    """Relation between a subject and an object."""
+    __tablename__ = "relation"
+
+    # TODO: This currently only maps between information objects
+    # and actors, as in i.e. creator authority access
+    id = Column(Integer, ForeignKey('object.id'), primary_key=True)
+    subject_id = Column(Integer, ForeignKey("information_object.id"))
+    subject = relationship(InformationObject, primaryjoin=subject_id==InformationObject.id,
+            backref=backref("relations", cascade="all,delete-orphan"))
+    object_id = Column(Integer, ForeignKey("actor.id"))
+    object = relationship(Actor, primaryjoin=object_id==Actor.id,
+            backref=backref("relations", cascade="all,delete-orphan"))
+    type_id = Column(Integer, ForeignKey("term.id"))
+    type = relationship(Term,
+                primaryjoin="and_(Relation.type_id==Term.id, "
+                    "Term.taxonomy_id==%s)" % TaxonomyKeys.RELATION_TYPE_ID)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+
+
+
