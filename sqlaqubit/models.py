@@ -461,7 +461,7 @@ class ObjectTermRelation(Object):
     object_id = Column(Integer, ForeignKey("actor.id"))
     object = relationship(Object, primaryjoin="ObjectTermRelation.object_id==Object.id",
             foreign_keys=[object_id],
-            backref=backref("terms", cascade="all,delete-orphan"))
+            backref=backref("terms", cascade="all,delete-orphan"), enable_typechecks=False)
     term_id = Column(Integer, ForeignKey("term.id"))
     term = relationship(Term, primaryjoin=term_id==Term.id)
     start_date = Column(Date, nullable=True)
