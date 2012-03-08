@@ -207,7 +207,6 @@ class Object(Base, TimeStampMixin, SerialNumberMixin):
     """Qubit Object base class."""
     id = Column(Integer, primary_key=True)
     class_name = Column("class_name", String(25))
-    terms = relationship("Term", secondary=object_term_relation)
     __mapper_args__ = dict(polymorphic_on=class_name)
 
     def __init__(self, *args, **kwargs):
@@ -454,4 +453,17 @@ class Relation(Object, I18NMixin):
     end_date = Column(Date, nullable=True)
 
 
+class ObjectTermRelation(Object):
+    __tablename__ = "object_term_relation"
+    __table_args__ = dict(extend_existing=True)
+
+    id = Column(Integer, ForeignKey('object.id'), primary_key=True)
+    object_id = Column(Integer, ForeignKey("actor.id"))
+    object = relationship(Object, primaryjoin="ObjectTermRelation.object_id==Object.id",
+            foreign_keys=[object_id],
+            backref=backref("terms", cascade="all,delete-orphan"))
+    term_id = Column(Integer, ForeignKey("term.id"))
+    term = relationship(Term, primaryjoin=term_id==Term.id)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
 
