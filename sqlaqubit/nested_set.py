@@ -54,11 +54,13 @@ class NestedSetExtension(MapperExtension):
         old_parent_id = connection.scalar(
                 select([table.c.parent_id]).where(table.c.id==instance.id)
         )
+        # FIXME: This depends on a `parent` object having been set,
+        # rather than just the `parent_id` FK
         if old_parent_id != instance.parent_id:
-            if instance.parent_id is None:
-                self._unparent_and_close_gap(instance, connection, table)
-            else:
+            if instance.parent:
                 self._move_within_tree(instance, instance.parent, connection, table)
+            else:
+                self._unparent_and_close_gap(instance, connection, table)
 
     def before_delete(self, mapper, connection, instance):
         """Delete nested tree values for this model."""
