@@ -862,8 +862,8 @@ CREATE TABLE "object_term_relation" (
 CREATE TABLE "other_name" (
   "object_id" int(11) NOT NULL,
   "type_id" int(11) DEFAULT NULL,
-  "created_at" datetime NOT NULL,
-  "updated_at" datetime NOT NULL,
+  "start_date" datetime DEFAULT NULL,
+  "end_date" datetime DEFAULT NULL,
   "source_culture" varchar(7) NOT NULL,
   "id" int(11) NOT NULL ,
   "serial_number" int(11) NOT NULL DEFAULT '0',
@@ -963,6 +963,7 @@ CREATE TABLE "relation" (
   "type_id" int(11) DEFAULT NULL,
   "start_date" date DEFAULT NULL,
   "end_date" date DEFAULT NULL,
+  "source_culture" varchar(7) NOT NULL,
   PRIMARY KEY ("id")
   CONSTRAINT "relation_FK_1" FOREIGN KEY ("id") REFERENCES "object" ("id") ON DELETE CASCADE,
   CONSTRAINT "relation_FK_2" FOREIGN KEY ("subject_id") REFERENCES "object" ("id"),
@@ -975,6 +976,7 @@ CREATE TABLE "repository" (
   "desc_status_id" int(11) DEFAULT NULL,
   "desc_detail_id" int(11) DEFAULT NULL,
   "desc_identifier" varchar(255) DEFAULT NULL,
+  "upload_limit" float DEFAULT -1,
   "source_culture" varchar(7) NOT NULL,
   PRIMARY KEY ("id")
   CONSTRAINT "repository_FK_1" FOREIGN KEY ("id") REFERENCES "actor" ("id") ON DELETE CASCADE,
