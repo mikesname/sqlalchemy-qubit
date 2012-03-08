@@ -296,7 +296,8 @@ class InformationObject(Object, NestedObjectMixin, I18NMixin):
                 primaryjoin="and_(InformationObject.level_of_description_id==Term.id, "
                     "Term.taxonomy_id==%s)" % TaxonomyKeys.LEVEL_OF_DESCRIPTION_ID)
     repository_id = Column(Integer, ForeignKey("repository.id"))
-    repository = relationship(Repository, backref=backref("information_objects"),
+    repository = relationship(Repository, backref=backref("information_objects",
+                cascade="all,delete-orphan"),
             primaryjoin="Repository.id == InformationObject.repository_id")
     source_standard = Column(String(255))
 
@@ -463,7 +464,8 @@ class ObjectTermRelation(Object):
             foreign_keys=[object_id],
             backref=backref("terms", cascade="all,delete-orphan"), enable_typechecks=False)
     term_id = Column(Integer, ForeignKey("term.id"))
-    term = relationship(Term, primaryjoin=term_id==Term.id)
+    term = relationship(Term, primaryjoin=term_id==Term.id,
+            backref=backref("objects", cascade="all,delete-orphan"))
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
 
